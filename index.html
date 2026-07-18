@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<title>贪吃蛇：迷宫逃脱 🐍</title>
+<script>
+(function(){
+  const cdns=['https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js','https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'];
+  window._peerjsLoaded=false;
+  window._loadPeerJS=function(){
+    if(window._peerjsLoaded||window.Peer)return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');s.src=cdns[0];
+      s.onload=()=>{window._peerjsLoaded=true;resolve();};
+      s.onerror=()=>{
+        const s2=document.createElement('script');s2.src=cdns[1];
+        s2.onload=()=>{window._peerjsLoaded=true;resolve();};
+        s2.onerror=()=>reject(new Error('PeerJS CDN unavailable'));
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    });
+  };
+})();
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0d0d1a;color:#fff;font-family:'Segoe UI','PingFang SC',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;height:100dvh;overflow:hidden;touch-action:none;position:fixed;width:100%;overscroll-behavior:none}
+#mode-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;overflow-y:auto;padding:20px 0}
+#mode-screen.hidden{display:none}
+.mode-title{font-size:1.6rem;font-weight:800;margin-bottom:20px;letter-spacing:3px;color:#4eff91}
+.mode-btn{padding:14px 36px;border:none;border-radius:40px;font-size:1rem;font-weight:700;cursor:pointer;margin:6px;letter-spacing:1px}
+.mode-btn.sp{background:linear-gradient(135deg,#4eff91,#00c9ff);color:#0d0d1a;box-shadow:0 3px 14px rgba(78,255,145,.35)}
+.mode-btn.mp{background:linear-gradient(135deg,#ff6b35,#ffd95a);color:#0d0d1a;box-shadow:0 3px 14px rgba(255,107,53,.35)}
+.mode-btn:active{transform:scale(.94)}
+.rules-panel{margin-top:18px;padding:14px 20px;background:rgba(255,255,255,.04);border:1px solid rgba(78,255,145,.12);border-radius:14px;max-width:340px;width:90%}
+.rules-panel h3{font-size:.8rem;color:#4eff91;margin-bottom:8px;text-align:center;letter-spacing:1px}
+.rules-panel .rule-row{display:flex;align-items:flex-start;gap:6px;font-size:.68rem;color:#bbb;line-height:1.5;margin:4px 0}
+.rules-panel .rule-row .rule-emoji{flex-shrink:0;width:18px;text-align:center}
+.mp-input{width:200px;padding:10px 16px;border:2px solid rgba(255,107,53,.3);border-radius:12px;background:rgba(255,255,255,.06);color:#fff;font-size:1rem;text-align:center;outline:none;margin:6px}
+.mp-input:focus{border-color:#ff6b35}
+#mp-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:55}
+#mp-screen.hidden{display:none}
+.mp-title{font-size:1.3rem;font-weight:800;margin-bottom:16px;color:#ff6b35;letter-spacing:2px}
+.mp-btn{padding:12px 28px;border:none;border-radius:40px;font-size:.9rem;font-weight:700;cursor:pointer;margin:6px;letter-spacing:1px}
+.mp-btn.create{background:linear-gradient(135deg,#ff6b35,#ffd95a);color:#0d0d1a;box-shadow:0 3px 14px rgba(255,107,53,.35)}
+.mp-btn.join{background:linear-gradient(135deg,#00c9ff,#74b9ff);color:#0d0d1a;box-shadow:0 3px 14px rgba(0,201,255,.35)}
+.mp-btn.back{background:rgba(255,255,255,.08);color:#aaa;border:1px solid rgba(255,255,255,.15)}
+.mp-btn:active{transform:scale(.94)}
+.mp-room-code{font-size:2rem;font-weight:800;color:#ff6b35;letter-spacing:6px;margin:10px 0}
+.mp-status{font-size:.8rem;color:#888;margin:6px 0;text-align:center}
+.mp-player-list{font-size:.8rem;margin:8px 0}
+#mp-waiting.hidden{display:none}
+#game-header{background:#0a0a14;border-bottom:1px solid rgba(78,255,145,.1);padding:4px 8px;width:100%}
+#game-header h1{font-size:.7rem;font-weight:700;letter-spacing:2px;color:#4eff91;text-align:center;margin-bottom:3px}
+.hud-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.hud-item{text-align:center;min-width:36px}
+.hud-label{font-size:.55rem;color:#888;display:block}
+.hud-val{font-size:.75rem;font-weight:700;color:#fff;display:block}
+#mp-hud{display:flex;justify-content:center;gap:4px;padding:2px 8px;font-size:.65rem}
+.mp-player-name{font-weight:700;font-size:.7rem}
+#powers-bar{display:flex;justify-content:center;gap:4px;padding:2px;min-height:22px}
+#devil-fruit-info{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,0,68,.15);border:1px solid rgba(255,0,68,.4);border-radius:20px;padding:4px 16px;font-size:.7rem;color:#ff4477;z-index:50;display:none;animation:dfPulse 1.5s infinite alternate;text-align:center;box-shadow:0 0 12px rgba(255,0,68,.2)}
+@keyframes dfPulse{from{box-shadow:0 0 8px rgba(255,0,68,.15)}to{box-shadow:0 0 20px rgba(255,0,68,.35)}}
+.power-badge{padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;color:#fff}
+#game-wrap{position:relative;border-radius:12px;overflow:hidden;background:#080810;border:2px solid rgba(78,255,145,.15);box-shadow:0 0 24px rgba(78,255,145,.08);flex-shrink:0}
+#canvas{display:block}
+#pause-btn{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:.8rem;color:#fff;cursor:pointer;z-index:25}
+#end-btn{position:absolute;top:6px;right:42px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.35);border-radius:20px;padding:3px 8px;font-size:.7rem;color:#ff5050;cursor:pointer;z-index:25;display:none}
+#minimap-wrap{position:absolute;top:6px;left:6px;border-radius:6px;overflow:hidden;box-shadow:0 0 6px rgba(0,0,0,.4);z-index:15}
+#minimap{display:block;border:1px solid rgba(78,255,145,.15)}
+#devil-fruit-coords{position:absolute;top:52px;left:6px;background:rgba(255,0,68,.12);border:1px solid rgba(255,0,68,.35);border-radius:6px;padding:2px 6px;font-size:.55rem;color:#ff4477;z-index:15;white-space:nowrap;box-shadow:0 0 6px rgba(255,0,68,.15)}
+#dir-indicator{position:absolute;top:6px;right:84px;font-size:.7rem;color:rgba(78,255,145,.6);background:rgba(5,5,18,.5);border:1px solid rgba(78,255,145,.2);border-radius:6px;padding:1px 6px;z-index:15}
+#level-flash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.4rem;font-weight:800;color:#ffd95a;letter-spacing:3px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
+#level-flash.show{opacity:1}
+#overlay{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,5,18,.94);border-radius:12px;gap:8px;transition:opacity .3s;z-index:20}
+#overlay.hidden{opacity:0;pointer-events:none}
+.ov-emoji{font-size:2.5rem;animation:bounce 1s infinite alternate}
+@keyframes bounce{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
+.ov-title{font-size:1.2rem;font-weight:800;letter-spacing:2px}
+.ov-sub{font-size:.7rem;color:#aaa;text-align:center;padding:0 16px;line-height:1.4}
+.ov-result{font-size:.75rem;color:#4eff91;text-align:center;padding:0 10px}
+#start-btn{margin-top:8px;padding:10px 32px;background:linear-gradient(135deg,#4eff91,#00c9ff);border:none;border-radius:40px;font-size:1rem;font-weight:700;color:#0d0d1a;cursor:pointer;letter-spacing:1px;box-shadow:0 3px 14px rgba(78,255,145,.35);transition:transform .12s,box-shadow .12s}
+#start-btn:active{transform:scale(.94);box-shadow:0 2px 6px rgba(78,255,145,.25)}
+#item-slots{display:flex;justify-content:center;gap:10px;padding:6px 0}
+.item-slot{width:60px;height:60px;border-radius:14px;background:rgba(255,255,255,.04);border:2px solid rgba(255,255,255,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:1.6rem;transition:background .12s,border-color .12s,transform .08s;position:relative}
+.item-slot.has-item{border-color:var(--item-color,#4eff91);background:rgba(78,255,145,.08);box-shadow:0 0 12px var(--item-color,rgba(78,255,145,.3))}
+.item-slot.has-item:active{transform:scale(.92)}
+.item-slot-label{font-size:.5rem;color:#888;margin-top:1px}
+#dpad{position:relative;width:200px;height:200px;margin:4px auto;flex-shrink:0}
+.dpad-btn{position:absolute;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:1.5rem;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .08s,transform .08s;width:64px;height:64px}
+.dpad-btn:active,.dpad-btn.pressed{background:rgba(78,255,145,.15);transform:scale(.92)}
+#btn-up{top:0;left:50%;transform:translateX(-50%)}
+#btn-down{bottom:0;left:50%;transform:translateX(-50%)}
+#btn-left{top:50%;left:0;transform:translateY(-50%)}
+#btn-right{top:50%;right:0;transform:translateY(-50%)}
+#btn-boost{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:rgba(255,159,67,.12);border:2px solid rgba(255,159,67,.35);font-size:1.3rem;color:#ff9f43;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .08s,transform .08s,box-shadow .12s;z-index:2}
+#btn-boost:active,#btn-boost.pressed{background:rgba(255,159,67,.3);transform:translate(-50%,-50%) scale(.92)}
+#btn-boost.active{background:rgba(255,159,67,.25);border-color:#ff9f43;box-shadow:0 0 16px rgba(255,159,67,.4);animation:boostPulse .5s infinite alternate}
+#btn-boost.free{border-color:#4eff91;color:#4eff91;background:rgba(78,255,145,.12);box-shadow:0 0 12px rgba(78,255,145,.3)}
+@keyframes boostPulse{from{box-shadow:0 0 8px rgba(255,159,67,.3)}to{box-shadow:0 0 20px rgba(255,159,67,.5)}}
+#toast-container{position:fixed;top:0;left:0;width:100%;z-index:100;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.toast{background:rgba(5,5,18,.85);border:1px solid rgba(78,255,145,.2);border-radius:20px;padding:4px 14px;font-size:.7rem;color:#fff;margin:3px 0;animation:toastIn .2s,toastOut .3s 1.7s forwards;pointer-events:none;max-width:90vw;text-align:center}
+@keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
+#error-display{position:fixed;bottom:10px;left:10px;right:10px;background:rgba(255,0,0,.9);color:#fff;font-size:.7rem;padding:8px;border-radius:8px;z-index:200;display:none;max-height:60px;overflow:auto}
+@media(max-height:640px){#dpad{width:170px;height:170px}.dpad-btn{width:56px;height:56px;font-size:1.3rem}.item-slot{width:48px;height:48px;font-size:1.3rem}#btn-boost{width:48px;height:48px;font-size:1.1rem}}
+</style>
+</head>
+<body>
+<!-- Error display for JS crashes -->
+<div id="error-display"></div>
+<div id="toast-container"></div>
+<!-- Mode selection screen -->
+<div id="mode-screen"><div class="mode-title">🐍 迷宫逃脱</div>
+<div style="margin-bottom:14px"><input class="mp-input" id="player-name-input" placeholder="你的名字" maxlength="8" value="" style="width:160px;border-color:rgba(78,255,145,.3);background:rgba(255,255,255,.06)"/></div>
+<button class="mode-btn sp" id="mode-sp">单人模式</button><button class="mode-btn mp" id="mode-mp">联机模式</button>
+<div class="rules-panel"><h3>📜 游戏规则</h3>
+<div class="rule-row"><span class="rule-emoji">🏆</span><span>获胜条件：穿越蓝色边界到达第7关，再次穿越边界即可通关获胜</span></div>
+<div class="rule-row"><span class="rule-emoji">🍕</span><span>吃食物增长得分，连击翻倍。穿越蓝色边界进入下一关</span></div>
+<div class="rule-row"><span class="rule-emoji">⚡</span><span>空格键加速：2倍速度，每5秒消耗1节身体（正常每15秒缩减1节）</span></div>
+<div class="rule-row"><span class="rule-emoji">🎮</span><span>WASD/方向键移动，1/2键使用道具，空格加速，P暂停</span></div>
+<div class="rule-row"><span class="rule-emoji">📦</span><span>拾取道具存入道具栏（最多2个），按1/2键使用</span></div>
+<div class="rule-row"><span class="rule-emoji">👻</span><span>穿墙10s · ✨隐身10s · 🛡️护盾30s</span></div>
+<div class="rule-row"><span class="rule-emoji">🌀</span><span>传送门跨关卡传送，每30秒刷新位置</span></div>
+<div class="rule-row"><span class="rule-emoji">😈</span><span>恶魔果实极稀有，仅出现在前3层，随机强力效果</span></div>
+<div class="rule-row"><span class="rule-emoji">💀</span><span>碰墙/被长蛇吃掉→重生回关卡1并清空积分，不结束游戏</span></div>
+<div class="rule-row"><span class="rule-emoji">🗺️</span><span>共7关，地图逐渐扩大，猎手蛇越来越长</span></div>
+</div></div>
+<!-- Multiplayer screen -->
+<div id="mp-screen" class="hidden"><div class="mp-title">🔥 联机对战</div>
+<div style="margin-bottom:10px"><input class="mp-input" id="mp-name-input" placeholder="你的名字" maxlength="8" style="width:160px;border-color:rgba(255,107,53,.3)"/></div>
+<div id="mp-create-section"><button class="mp-btn create" id="mp-create">创建房间</button>
+<div id="mp-waiting" class="hidden"><div class="mp-room-code" id="mp-room-code-display">----</div><div class="mp-status" id="mp-wait-status">等待玩家加入...</div><div class="mp-player-list" id="mp-player-list"></div><button class="mp-btn create" id="mp-start-game" style="margin-top:12px">开始游戏</button></div></div>
+<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:16px;width:260px"><div style="font-size:.7rem;color:#888;text-align:center;margin-bottom:6px">输入房间代码加入</div><input class="mp-input" id="mp-room-input" placeholder="房间代码" maxlength="6"/><button class="mp-btn join" id="mp-join">加入房间</button></div>
+<div class="mp-status" id="mp-join-status"></div><button class="mp-btn back" id="mp-back" style="margin-top:20px">← 返回</button></div>
+<!-- Game UI -->
+<header id="game-header" style="display:none"><h1>🐍 迷宫逃脱</h1><div class="hud-row">
+<div class="hud-item"><span class="hud-label">得分</span><span class="hud-val" id="score-val">0</span></div>
+<div class="hud-item"><span class="hud-label">连击</span><span class="hud-val" id="combo-val">-</span></div>
+<div class="hud-item"><span class="hud-label">蛇长</span><span class="hud-val" id="snake-len-val">4</span></div>
+<div class="hud-item"><span class="hud-label">关卡</span><span class="hud-val" id="level-val">1</span></div>
+<div class="hud-item"><span class="hud-label">迷雾</span><span class="hud-val" id="fog-val">-</span></div>
+<div class="hud-item"><span class="hud-label">FPS</span><span class="hud-val" id="fps-val">60</span></div>
+<div class="hud-item"><span class="hud-label">时间</span><span class="hud-val" id="time-val">0:00</span></div>
+<div class="hud-item"><span class="hud-label">最高</span><span class="hud-val" id="best-val">0</span></div></div></header>
+<div id="mp-hud"></div><div id="powers-bar" style="display:none"></div>
+<div id="devil-fruit-info" style="display:none"></div>
+<div id="game-wrap" style="display:none"><canvas id="canvas"></canvas><button id="pause-btn">⏸</button><button id="end-btn">退出</button>
+<div id="minimap-wrap"><canvas id="minimap"></canvas></div><div id="devil-fruit-coords" style="display:none"></div><div id="dir-indicator">→</div><div id="level-flash"></div>
+<div id="overlay"><div class="ov-emoji" id="ov-emoji">🐍</div><div class="ov-title" id="ov-title">迷宫逃脱</div>
+<div class="ov-sub" id="ov-sub">穿越外墙解锁新地图！<br>碰到猎手蛇：长者胜，短者亡！</div>
+<div class="ov-result" id="ov-result"></div><button id="start-btn">开始游戏</button></div></div>
+<div id="item-slots" style="display:none"><button class="item-slot" id="item-slot-1"><span class="item-slot-label">1</span></button><button class="item-slot" id="item-slot-2"><span class="item-slot-label">2</span></button></div>
+<div id="dpad" style="display:none"><button class="dpad-btn" id="btn-up">▲</button><button class="dpad-btn" id="btn-down">▼</button><button class="dpad-btn" id="btn-left">◀</button><button class="dpad-btn" id="btn-right">▶</button><button id="btn-boost">⚡</button></div>
+<script>
+// ═══ GLOBAL ERROR CATCHER ═══
+(function(){
+  const errEl=document.getElementById('error-display');
+  window.onerror=function(msg,url,line,col,err){
+    if(errEl){errEl.style.display='block';errEl.textContent='JS错误: '+msg+' (行'+line+')';}
+    console.error('Game JS Error:',msg,line,err);
+    return false;
+  };
+  window.addEventListener('unhandledrejection',function(e){
+    if(errEl){errEl.style.display='block';errEl.textContent='Promise错误: '+e.reason;}
+    console.error('Unhandled rejection:',e.reason);
+  });
+})();
+
+// ═══ CONFIG ═══
+const INIT_COLS=40,INIT_ROWS=40,MAX_COLS=76,MAX_ROWS=76,EXPAND_STEP=6;
+const VIEWPORT_COLS=18;
+const BASE_INTERVAL=220,SPEED_DELTA=4;
+const LEVEL_COOLDOWN=5000,RESPAWN_INVULN=3000;
+const SHRINK_INTERVAL_NORMAL=15000,SHRINK_INTERVAL_BOOST=5000,SHRINK_MIN_LENGTH=3,BOOST_MIN_LENGTH=4;
+const MAX_LEVEL=7,MAX_ITEM_SLOTS=2,PORTAL_PAIRS=2;
+const PORTAL_REFRESH_INTERVAL=30000;
+const DEVIL_FRUIT_SPAWN_TIME=60000;
+const FOG_DURATION=10000,FOG_BASE_INTERVAL=28000,FOG_START_LEVEL=2;
+const PLAYER_COLORS=['#4eff91','#ff6b35','#74b9ff','#ffd95a','#a29bfe','#fd79a8','#55efc4','#e17055'];
+const PLAYER_NAMES=['玩家1','玩家2','玩家3','玩家4'];
+
+function getFoodCount(){return 2+players.length*2+Math.floor((level||1)*0.5);}
+function getPlayerName(){
+  const n1=(document.getElementById('mp-name-input')?.value||'').trim();
+  const n2=(document.getElementById('player-name-input')?.value||'').trim();
+  const n=n1||n2||'';
+  return n.length>0?n.slice(0,8):PLAYER_NAMES[myPlayerIdx]||('玩家'+(myPlayerIdx+1));
+}
+function getPlayerColor(i){return PLAYER_COLORS[i%PLAYER_COLORS.length];}
+
+// ═══ COLORS ═══
+const C={bg:'#080810',grid:'rgba(255,255,255,0.025)',innerWall:'#1a0a0a',innerWallEdge:'#8b2020',innerWallGlow:'rgba(139,32,32,0.15)',food:'#ff4f6e',foodGlow:'rgba(255,79,110,.35)',goldFood:'#ffd95a',goldFoodGlow:'rgba(255,217,90,.35)',greenFood:'#55efc4',greenFoodGlow:'rgba(85,239,196,.35)',snakeHead:'#4eff91',snakeBody:'#22c563',snakeTail:'#14874a',snakeGlow:'rgba(78,255,145,0.25)',eyeWhite:'#e8e8e8',eyePupil:'#0a0a15',enemyHead:'#ff6b35',enemyBody:'#cc4400',enemyTail:'#8b2500',enemyGlow:'rgba(255,107,53,0.2)',pPhase:'#74b9ff',pInvisible:'#dfe6e9',pSpeed:'#ff9f43',pShield:'#00cec9',portalA:'#00c9ff',portalB:'#ff6b35',devilFruit:'#ff0044',trailColor:'rgba(78,255,145,0.06)',particleSet:['#4eff91','#00c9ff','#ff4f6e','#ffd95a','#fd79a8','#a29bfe','#55efc4','#d6a2e8']};
+
+// ═══ ITEM DEFS ═══
+const NEW_ITEM_DEFS=[
+  {type:'phase',emoji:'👻',color:C.pPhase,label:'穿墙',duration:10000,rarity:0.28},
+  {type:'invisible',emoji:'✨',color:C.pInvisible,label:'隐身',duration:10000,rarity:0.22},
+  {type:'speed',emoji:'⚡',color:C.pSpeed,label:'加速',duration:10000,rarity:0.28},
+  {type:'shield',emoji:'🛡️',color:C.pShield,label:'护盾',duration:30000,rarity:0.22}
+];
+const FOOD_TYPES=[
+  {type:'normal',color:C.food,glow:C.foodGlow,score:2,growth:1},
+  {type:'gold',color:C.goldFood,glow:C.goldFoodGlow,score:5,growth:0},
+  {type:'green',color:C.greenFood,glow:C.greenFoodGlow,score:1,growth:2}
+];
+
+function getMaxItems(){return 3+Math.floor((level||1)*0.5);}
+function getItemSpawnDelay(){return Math.max(2500,4000-(level||1)*250)+Math.random()*2000;}
+function getItemTTL(){return Math.max(8000,18000-(level||1)*600);}
+function randomItemDef(){const tw=NEW_ITEM_DEFS.reduce((s,d)=>s+d.rarity,0);let r=Math.random()*tw;for(const d of NEW_ITEM_DEFS){r-=d.rarity;if(r<=0)return d;}return NEW_ITEM_DEFS[0];}
+
+// ═══ COLOR UTILS ═══
+function lerpHex(a,b,t){
+  const ah=parseInt(a.replace('#',''),16),bh=parseInt(b.replace('#',''),16);
+  const ar=(ah>>16)&255,ag=(ah>>8)&255,ab=ah&255;
+  const br=(bh>>16)&255,bg=(bh>>8)&255,bb=bh&255;
+  const rr=Math.round(ar+(br-ar)*t),rg=Math.round(ag+(bg-ag)*t),rb=Math.round(ab+(bb-ab)*t);
+  return '#'+((rr<<16)|(rg<<8)|rb).toString(16).padStart(6,'0');
+}
+const snakeColorTable=[],enemyColorTable=[];
+function buildColorTable(){
+  snakeColorTable.length=0;enemyColorTable.length=0;
+  for(let i=0;i<=50;i++){const t=i/50;snakeColorTable.push(lerpHex(C.snakeHead,C.snakeTail,t));enemyColorTable.push(lerpHex(C.enemyHead,C.enemyTail,t));}
+}
+buildColorTable();
+function getSnakeColor(i,len){return snakeColorTable[Math.floor(i/(len-1)*50)]||C.snakeBody;}
+function getEnemyColor(i,len){return enemyColorTable[Math.floor(i/(len-1)*50)]||C.enemyBody;}
+
+// ═══ DOM REFS ═══
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+const mmCanvas=document.getElementById('minimap'),mmCtx=mmCanvas.getContext('2d');
+const dirInd=document.getElementById('dir-indicator');
+const scoreEl=document.getElementById('score-val'),bestEl=document.getElementById('best-val');
+const levelEl=document.getElementById('level-val'),comboEl=document.getElementById('combo-val');
+const fogEl=document.getElementById('fog-val'),snakeLenEl=document.getElementById('snake-len-val');
+const fpsEl=document.getElementById('fps-val'),timeEl=document.getElementById('time-val'),powersBar=document.getElementById('powers-bar');
+const overlay=document.getElementById('overlay');
+const ovEmoji=document.getElementById('ov-emoji'),ovTitle=document.getElementById('ov-title');
+const ovSub=document.getElementById('ov-sub'),ovResult=document.getElementById('ov-result');
+const startBtn=document.getElementById('start-btn'),pauseBtn=document.getElementById('pause-btn'),endBtn=document.getElementById('end-btn');
+const lvFlash=document.getElementById('level-flash'),mpHud=document.getElementById('mp-hud');
+const itemSlot1=document.getElementById('item-slot-1'),itemSlot2=document.getElementById('item-slot-2');
+const modeScreen=document.getElementById('mode-screen'),mpScreen=document.getElementById('mp-screen');
+const gameHeader=document.getElementById('game-header'),gameWrap=document.getElementById('game-wrap');
+const dpadEl=document.getElementById('dpad'),itemSlotsEl=document.getElementById('item-slots');
+const boostBtn=document.getElementById('btn-boost');
+const devilFruitInfo=document.getElementById('devil-fruit-info');
+
+// ═══ GAME STATE ═══
+let COLS=INIT_COLS,ROWS=INIT_ROWS,wallCoords=[],wallSet=new Set();
+let boundarySegments={top:[{start:0,end:9999}],bottom:[{start:0,end:9999}],left:[{start:0,end:9999}],right:[{start:0,end:9999}]};
+let foods=[],items=[],enemies=[],portals=[],particles=[];
+let camX=0,camY=0,camTargetX=0,camTargetY=0;
+let running=false,paused=false;
+let boostLastToggle=0;
+let combo=0,comboTimer=null;
+let fogActive=false,fogCycleTimer=null,fogEndTimer=null;
+let trail=[];
+let sortedTrailCache=null,sortedTrailCacheTime=0;
+let fpsFrames=0,fpsTime=0,currentFps=60;
+let itemSpawnTimer=null;
+let lastLevelUpTime=0,winner=null;
+let devilFruit=null,devilFruitNextSpawn=0,devilFruitHolder=-1,gameStartTime=0;
+let portalRefreshTimer=null;
+let rafId=null;
+let gameMode='sp',players=[],myPlayerIdx=0;
+let peer=null,connections=[],isHost=false,roomCode='',stateBroadcastTimer=null,mpReady=false;
+let best=0,level=1,interval=BASE_INTERVAL,respawnCount=0;
+
+// ═══ LOCAL STORAGE ═══
+function safeLSGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function safeLSSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+
+// ═══ CANVAS SETUP ═══
+let canvasSize=0,canvasRes=0;
+function resizeCanvas(){
+  const vw97=Math.round(window.innerWidth*0.97);
+  const vhHeader=gameHeader.offsetHeight||0;
+  const vhSlots=itemSlotsEl.offsetHeight||0;
+  const vhDpad=dpadEl.offsetHeight||0;
+  const availH=window.innerHeight-vhHeader-vhSlots-vhDpad-20;
+  const sizeByW=Math.min(vw97,440);
+  const sizeByH=Math.min(availH,440);
+  const size=Math.max(Math.min(sizeByW,sizeByH),280);
+  gameWrap.style.width=size+'px';
+  gameWrap.style.height=size+'px';
+  canvasSize=size;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  canvasRes=Math.round(canvasSize*dpr);
+  canvas.width=canvasRes;
+  canvas.height=canvasRes;
+  canvas.style.width=canvasSize+'px';
+  canvas.style.height=canvasSize+'px';
+  mmCanvas.width=40;mmCanvas.height=40;
+}
+function cellPx(){return canvasRes/VIEWPORT_COLS;}
+window.addEventListener('resize',()=>{resizeCanvas();if(!running)drawStatic();});
+
+// ═══ TOAST ═══
+function showToast(msg){
+  const tc=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className='toast';t.textContent=msg;
+  tc.appendChild(t);
+  setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},2200);
+}
+
+// ═══ MAZE ═══
+function isOnBoundarySegment(pos,segs){for(const s of segs){if(pos>=s.start&&pos<s.end)return true;}return false;}
+function generateBoundarySegments(lv){
+  if(lv<=1)return{top:[{start:0,end:9999}],bottom:[{start:0,end:9999}],left:[{start:0,end:9999}],right:[{start:0,end:9999}]};
+  const fraction=Math.max(0.3,1-lv*0.1);
+  const segs={top:[],bottom:[],left:[],right:[]};
+  for(const[edge,dim]of[['top',COLS],['bottom',COLS],['left',ROWS],['right',ROWS]]){
+    const bLen=Math.max(Math.floor(dim*fraction),8);
+    const numSegs=Math.random()<0.4?1:2;
+    let remaining=bLen;
+    for(let s=0;s<numSegs;s++){
+      const segLen=s===numSegs-1?Math.max(remaining,4):Math.max(Math.floor(remaining/(numSegs-s))+Math.floor(Math.random()*4)-2,4);
+      const maxStart=Math.max(0,dim-segLen);
+      const start=2+Math.floor(Math.random()*Math.max(1,maxStart-3));
+      segs[edge].push({start:start,end:start+segLen});
+      remaining-=segLen;
+    }
+  }
+  return segs;
+}
+function buildMaze(){
+  wallSet=new Set();
+  boundarySegments=generateBoundarySegments(Math.min(level||1,MAX_LEVEL));
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+  const forbidden=new Set();
+  for(let dx=-6;dx<=6;dx++)for(let dy=-6;dy<=6;dy++)forbidden.add(`${cx+dx},${cy+dy}`);
+  for(const p of portals)for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)forbidden.add(`${p.pos.x+dx},${p.pos.y+dy}`);
+  if(devilFruit&&devilFruit.active&&devilFruit.level===(level||1)&&devilFruit.x>=0&&devilFruit.x<COLS&&devilFruit.y>=0&&devilFruit.y<ROWS)for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)forbidden.add(`${devilFruit.x+dx},${devilFruit.y+dy}`);
+  const addWall=(x,y)=>{if(x<2||x>=COLS-2||y<2||y>=ROWS-2)return;if(forbidden.has(`${x},${y}`))return;wallSet.add(`${x},${y}`);};
+  const lv=Math.min(level||1,12);
+  const hWalls=3+Math.floor(lv*0.8);
+  for(let w=0;w<hWalls;w++){
+    const row=3+Math.floor(Math.random()*(ROWS-6));
+    const sc=2+Math.floor(Math.random()*Math.max(1,COLS-10));
+    const len=Math.max(6,COLS-6-Math.floor(Math.random()*8));
+    const gaps=Math.max(2,4-Math.floor(lv*0.2));
+    const gp=new Set();for(let g=0;g<gaps;g++)gp.add(sc+2+Math.floor(Math.random()*(len-4)));
+    for(let i=0;i<len;i++)if(!gp.has(sc+i))addWall(sc+i,row);
+  }
+  const vWalls=3+Math.floor(lv*0.6);
+  for(let w=0;w<vWalls;w++){
+    const col=3+Math.floor(Math.random()*(COLS-6));
+    const sr=2+Math.floor(Math.random()*Math.max(1,ROWS-10));
+    const len=Math.max(6,ROWS-6-Math.floor(Math.random()*8));
+    const gaps=Math.max(2,4-Math.floor(lv*0.2));
+    const gp=new Set();for(let g=0;g<gaps;g++)gp.add(sr+2+Math.floor(Math.random()*(len-4)));
+    for(let i=0;i<len;i++)if(!gp.has(sr+i))addWall(col,sr+i);
+  }
+  if(lv>=2){const shapes=Math.floor(lv*0.4)+1;for(let n=0;n<shapes;n++){const rx=6+Math.floor(Math.random()*(COLS-16)),ry=6+Math.floor(Math.random()*(ROWS-16)),lLen=3+Math.floor(Math.random()*4);for(let i=0;i<lLen;i++)if(i!==Math.floor(lLen/2))addWall(rx+i,ry);for(let j=1;j<Math.floor(lLen*0.6);j++)addWall(rx,ry+j);}}
+  if(lv>=4){for(let i=3;i<COLS-3;i++)if(i!==Math.floor(COLS*0.3)&&i!==Math.floor(COLS*0.6))addWall(i,3);for(let i=3;i<COLS-3;i++)if(i!==Math.floor(COLS*0.35)&&i!==Math.floor(COLS*0.65))addWall(i,ROWS-4);for(let i=3;i<ROWS-3;i++)if(i!==Math.floor(ROWS*0.3)&&i!==Math.floor(ROWS*0.7))addWall(3,i);for(let i=3;i<ROWS-3;i++)if(i!==Math.floor(ROWS*0.4)&&i!==Math.floor(ROWS*0.75))addWall(COLS-4,i);}
+  ensureConnectivity(cx,cy,forbidden);
+  wallCoords=[];wallSet.forEach(w=>{const p=w.split(',');wallCoords.push({x:+p[0],y:+p[1]});});
+}
+function ensureConnectivity(cx,cy,forbidden){
+  let visited=new Set(),queue=[`${cx},${cy}`];visited.add(`${cx},${cy}`);
+  while(queue.length>0){const key=queue.shift();const[x,y]=key.split(',').map(Number);
+    for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){const nx=x+dx,ny=y+dy;if(nx<0||nx>=COLS||ny<0||ny>=ROWS)continue;const nk=`${nx},${ny}`;if(visited.has(nk)||wallSet.has(nk))continue;visited.add(nk);queue.push(nk);}}
+  let unreachable=[];for(let x=2;x<COLS-2;x++)for(let y=2;y<ROWS-2;y++){const k=`${x},${y}`;if(!visited.has(k)&&!wallSet.has(k))unreachable.push(k);}
+  let iterations=0;
+  while(unreachable.length>0&&iterations<50){
+    iterations++;const cell=unreachable[0];const[ux,uy]=cell.split(',').map(Number);let removed=false;
+    for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){const wx=ux+dx,wy=uy+dy,wk=`${wx},${wy}`;
+      if(wallSet.has(wk)){for(const[ddx,ddy]of[[0,1],[0,-1],[1,0],[-1,0]]){if(visited.has(`${wx+ddx},${wy+ddy}`)){wallSet.delete(wk);removed=true;break;}}if(removed)break;}}
+    if(!removed){let bestWall=null,bestDist=Infinity;for(const w of wallSet){const[wx,wy]=w.split(',').map(Number);const dist=Math.abs(wx-ux)+Math.abs(wy-uy);if(dist<bestDist&&dist<8){for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){if(visited.has(`${wx+dx},${wy+dy}`)){bestDist=dist;bestWall=w;break;}}}}if(bestWall)wallSet.delete(bestWall);else break;}
+    visited=new Set();queue=[`${cx},${cy}`];visited.add(`${cx},${cy}`);
+    while(queue.length>0){const key=queue.shift();const[x,y]=key.split(',').map(Number);for(const[dx,dy]of[[0,1],[0,-1],[1,0],[-1,0]]){const nx=x+dx,ny=y+dy;if(nx<0||nx>=COLS||ny<0||ny>=ROWS)continue;const nk=`${nx},${ny}`;if(visited.has(nk)||wallSet.has(nk))continue;visited.add(nk);queue.push(nk);}}
+    unreachable=[];for(let x=2;x<COLS-2;x++)for(let y=2;y<ROWS-2;y++){const k=`${x},${y}`;if(!visited.has(k)&&!wallSet.has(k))unreachable.push(k);}
+  }
+}
+function isWallAt(x,y){return wallSet.has(`${x},${y}`);}
+
+// ═══ POSITION UTILS ═══
+function occupiedSet(){
+  const s=new Set();
+  for(const p of players)if(p.alive)p.snake.forEach(c=>s.add(`${c.x},${c.y}`));
+  items.forEach(it=>s.add(`${it.x},${it.y}`));
+  enemies.forEach(e=>e.body.forEach(c=>s.add(`${c.x},${c.y}`)));
+  wallSet.forEach(w=>s.add(w));
+  foods.forEach(f=>s.add(`${f.x},${f.y}`));
+  portals.forEach(p=>{s.add(`${p.pos.x},${p.pos.y}`);});
+  if(devilFruit&&devilFruit.active&&devilFruit.level===(level||1))s.add(`${devilFruit.x},${devilFruit.y}`);
+  return s;
+}
+function randFreeRaw(){return{x:2+Math.floor(Math.random()*(COLS-4)),y:2+Math.floor(Math.random()*(ROWS-4))};}
+function randFree(){const occ=occupiedSet();let pos,tries=0;do{pos=randFreeRaw();tries++;}while(occ.has(`${pos.x},${pos.y}`)&&tries<500);return pos;}
+
+// ═══ FOOD ═══
+function placeFoods(){
+  foods=[];const count=getFoodCount();
+  for(let i=0;i<count;i++){
+    const ft=FOOD_TYPES[i===0?0:Math.floor(Math.random()*FOOD_TYPES.length)];
+    const pos=randFree();foods.push({...ft,x:pos.x,y:pos.y});
+  }
+}
+function replaceFood(idx){
+  const ft=FOOD_TYPES[Math.floor(Math.random()*FOOD_TYPES.length)];
+  const pos=randFree();foods[idx]={...ft,x:pos.x,y:pos.y};
+}
+
+// ═══ PORTALS (cross-level) ═══
+function placePortals(){
+  portals=[];
+  const curLevel=level||1;
+  const possibleLevels=[];
+  for(let l=1;l<=MAX_LEVEL;l++){if(l!==curLevel)possibleLevels.push(l);}
+  for(let i=0;i<PORTAL_PAIRS;i++){
+    if(possibleLevels.length===0)continue;
+    const destLevel=possibleLevels[Math.floor(Math.random()*possibleLevels.length)];
+    const direction=destLevel>curLevel?'↗':'↙';
+    let pos=null,tries=0;
+    while(tries++<400&&!pos){
+      const candidate=randFreeRaw();const occ=occupiedSet();
+      const head=players[myPlayerIdx]?players[myPlayerIdx].snake[0]:{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)};
+      if(!occ.has(`${candidate.x},${candidate.y}`)&&Math.abs(candidate.x-head.x)+Math.abs(candidate.y-head.y)>8){
+        let tooClose=false;
+        for(const pp of portals){if(Math.abs(candidate.x-pp.pos.x)+Math.abs(candidate.y-pp.pos.y)<8)tooClose=true;}
+        if(!tooClose)pos=candidate;
+      }
+    }
+    if(pos)portals.push({pos,destLevel,label:`${direction} Lv${destLevel}`,color:i%2===0?C.portalA:C.portalB});
+  }
+}
+function refreshPortals(){
+  portals=[];
+  const curLevel=level||1;
+  const possibleLevels=[];
+  for(let l=1;l<=MAX_LEVEL;l++){if(l!==curLevel)possibleLevels.push(l);}
+  for(let i=0;i<PORTAL_PAIRS;i++){
+    if(possibleLevels.length===0)continue;
+    const destLevel=possibleLevels[Math.floor(Math.random()*possibleLevels.length)];
+    const direction=destLevel>curLevel?'↗':'↙';
+    let pos=null,tries=0;
+    while(tries++<400&&!pos){
+      const candidate=randFreeRaw();const occ=occupiedSet();
+      if(!occ.has(`${candidate.x},${candidate.y}`)){
+        let tooClose=false;
+        for(const pp of portals){if(Math.abs(candidate.x-pp.pos.x)+Math.abs(candidate.y-pp.pos.y)<8)tooClose=true;}
+        if(!tooClose)pos=candidate;
+      }
+    }
+    if(pos)portals.push({pos,destLevel,label:`${direction} Lv${destLevel}`,color:i%2===0?C.portalA:C.portalB});
+  }
+  showToast('🌀 传送门位置已更新！');
+}
+function checkPortals(hx,hy){
+  for(const p of portals){
+    if(hx===p.pos.x&&hy===p.pos.y)return{teleport:true,destLevel:p.destLevel};
+  }
+  return{teleport:false};
+}
+function teleportToLevel(pi,targetLevel){
+  const p=players[pi];
+  // Devil fruit is global across levels now; do NOT clear it on level transition.
+  const newCols=Math.min(INIT_COLS+(targetLevel-1)*EXPAND_STEP,MAX_COLS);
+  const newRows=Math.min(INIT_ROWS+(targetLevel-1)*EXPAND_STEP,MAX_ROWS);
+  COLS=newCols;ROWS=newRows;level=targetLevel;
+  p.level=targetLevel;
+  p.interval=Math.max(BASE_INTERVAL-(targetLevel-1)*SPEED_DELTA,70);
+  enemies=[];items=[];foods=[];portals=[];trail=[];sortedTrailCache=null;
+  clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+  placePortals();buildMaze();placeFoods();
+  const newPos=randFree();const len=p.snake.length;
+  p.snake=[];for(let i=0;i<len;i++)p.snake.push({x:newPos.x-i,y:newPos.y});
+  p.dir={x:1,y:0};p.nextDir={x:1,y:0};p.dirBuffer=[];p.visualDir={x:1,y:0};
+  p.respawnInvulnEnd=Date.now()+RESPAWN_INVULN;p.alive=true;p.trail=[];p.combo=0;p.boosting=false;
+  if(pi===myPlayerIdx)boostBtn.classList.remove('active','free');
+  scheduleItemSpawn();spawnInitialEnemies();scheduleFogCycle();schedulePortalRefresh();
+  showToast(`🌀 传送至关卡${targetLevel}！地图${COLS}×${ROWS}`);
+  updateHUD();updateCamera(true);updateItemSlotUI();
+  if(gameMode==='mp'&&isHost)broadcastState();
+}
+function schedulePortalRefresh(){
+  clearInterval(portalRefreshTimer);
+  portalRefreshTimer=setInterval(()=>{if(running&&!paused)refreshPortals();},PORTAL_REFRESH_INTERVAL);
+}
+
+// ═══ ITEM SPAWN ═══
+function scheduleItemSpawn(){
+  clearTimeout(itemSpawnTimer);
+  const delay=getItemSpawnDelay();
+  itemSpawnTimer=setTimeout(()=>{
+    if(!running||paused)return;
+    if(items.length<getMaxItems()){
+      const def=randomItemDef();const pos=randFree();
+      items.push({...def,x:pos.x,y:pos.y,spawnTime:Date.now(),ttl:getItemTTL()});
+    }
+    scheduleItemSpawn();
+  },delay);
+}
+
+// ═══ ITEM SLOT SYSTEM ═══
+function updateItemSlotUI(){
+  const p=players[myPlayerIdx];
+  if(!p)return;
+  for(let i=0;i<MAX_ITEM_SLOTS;i++){
+    const btn=i===0?itemSlot1:itemSlot2;
+    const slot=p.itemSlots[i];
+    if(slot){
+      btn.classList.add('has-item');
+      btn.style.setProperty('--item-color',slot.color);
+      btn.innerHTML=`<span style="font-size:1.4rem">${slot.emoji}</span><span class="item-slot-label">${slot.label}</span>`;
+    }else{
+      btn.classList.remove('has-item');
+      btn.style.removeProperty('--item-color');
+      btn.innerHTML=`<span class="item-slot-label">${i+1}</span>`;
+    }
+  }
+}
+function useItemSlot(slotIdx){
+  const p=players[myPlayerIdx];if(!p||!p.alive)return;
+  const slot=p.itemSlots[slotIdx];if(!slot)return;
+  applyItem(slot,myPlayerIdx);
+  p.itemSlots[slotIdx]=null;
+  if(p.infiniteItems&&Date.now()<p.infiniteItemsUntil){
+    const def=randomItemDef();p.itemSlots[slotIdx]={...def};
+  }
+  updateItemSlotUI();
+  if(gameMode==='mp'&&!isHost&&peer&&connections.length>0)connections[0].send({type:'useItem',slotIdx});
+}
+function applyItem(slot,pi){
+  const p=players[pi];if(!p)return;
+  const now=Date.now();
+  switch(slot.type){
+    case'phase':p.activePowers.phase=now+slot.duration;showToast(`${slot.emoji} 穿墙${Math.round(slot.duration/1000)}秒！`);break;
+    case'invisible':p.activePowers.invisible=now+slot.duration;showToast(`${slot.emoji} 隐身${Math.round(slot.duration/1000)}秒！`);break;
+    case'speed':p.activePowers.speed=now+slot.duration;showToast(`${slot.emoji} 加速免费${Math.round(slot.duration/1000)}秒！空格加速不耗身体！`);break;
+    case'shield':p.activePowers.shield=now+slot.duration;showToast(`${slot.emoji} 护盾${Math.round(slot.duration/1000)}秒！`);break;
+  }
+}
+
+// ═══ ENEMY ═══
+function getEnemyLength(){return Math.min(4+(level||1),15);}
+function spawnEnemy(){
+  const len=getEnemyLength();
+  const pos=randFree();
+  const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+  const d=dirs[Math.floor(Math.random()*dirs.length)];
+  const body=[];for(let i=0;i<len;i++)body.push({x:pos.x-d.x*i,y:pos.y-d.y*i});
+  enemies.push({body,dir:{...d},stepCounter:0,speed:(level||1)>=7?1:2,personality:Math.random(),growTimer:0,isGuardian:false,petrifiedUntil:0});
+}
+
+function getRecentTrail(){
+  const now=Date.now();const p=players[myPlayerIdx];if(!p)return[];
+  if(!sortedTrailCache||now-sortedTrailCacheTime>500){sortedTrailCache=p.trail.filter(t=>now-t.time<8000);sortedTrailCacheTime=now;}
+  return sortedTrailCache;
+}
+function stepEnemies(){
+  const now=Date.now();
+  const lh=players[myPlayerIdx]?players[myPlayerIdx].snake[0]:{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)};
+  const isInvis=players[myPlayerIdx]&&players[myPlayerIdx].activePowers.invisible&&now<players[myPlayerIdx].activePowers.invisible;
+  for(const e of enemies){
+    e.stepCounter++;e.growTimer++;
+    if(e.growTimer>=30&&e.body.length<20){e.body.push({...e.body[e.body.length-1]});e.growTimer=0;}
+    if(e.petrifiedUntil&&now<e.petrifiedUntil)continue;
+    if(e.petrifiedUntil&&now>=e.petrifiedUntil)e.petrifiedUntil=0;
+    if(e.stepCounter%e.speed!==0)continue;
+    let targetX=lh.x,targetY=lh.y;
+    if(e.isGuardian){
+      if(isInvis){targetX=e.guardianTarget.x+(Math.random()*6-3);targetY=e.guardianTarget.y+(Math.random()*6-3);}
+      else{const dist=Math.abs(e.body[0].x-lh.x)+Math.abs(e.body[0].y-lh.y);if(dist<10)e.speed=1;else e.speed=2;}
+    }else if(isInvis){targetX=e.body[0].x+(Math.random()*8-4);targetY=e.body[0].y+(Math.random()*8-4);}
+    else{
+      const recentTrail=getRecentTrail();
+      if(recentTrail.length>0&&e.personality>0.3){let minDist=Infinity,nearest=null;for(const t of recentTrail){const d=Math.abs(t.x-e.body[0].x)+Math.abs(t.y-e.body[0].y);if(d<minDist){minDist=d;nearest=t;}}if(nearest&&Math.random()<0.5*e.personality){targetX=nearest.x;targetY=nearest.y;}}
+    }
+    const head=e.body[0];const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    const validDirs=dirs.filter(d=>!(d.x===-e.dir.x&&d.y===-e.dir.y));
+    validDirs.sort((a,b)=>(Math.abs(head.x+a.x-targetX)+Math.abs(head.y+a.y-targetY))-(Math.abs(head.x+b.x-targetX)+Math.abs(head.y+b.y-targetY)));
+    let chosen=null;for(const d of validDirs){const nx=head.x+d.x,ny=head.y+d.y;if(nx<1||nx>=COLS-1||ny<1||ny>=ROWS-1||isWallAt(nx,ny)||e.body.some(c=>c.x===nx&&c.y===ny))continue;chosen=d;break;}
+    if(!chosen){const safeDirs=validDirs.filter(d=>{const nx=head.x+d.x,ny=head.y+d.y;return nx>=1&&nx<COLS-1&&ny>=1&&ny<ROWS-1&&!isWallAt(nx,ny);});chosen=safeDirs.length>0?safeDirs[Math.floor(Math.random()*safeDirs.length)]:e.dir;}
+    e.dir={...chosen};const nh={x:head.x+e.dir.x,y:head.y+e.dir.y};
+    if(nh.x<1||nh.x>=COLS-1||nh.y<1||nh.y>=ROWS-1||isWallAt(nh.x,nh.y)){
+      const rp=randFree();const newLen=getEnemyLength();e.body=[];for(let i=0;i<newLen;i++)e.body.push({x:rp.x,y:rp.y});e.dir={x:1,y:0};e.stepCounter=0;e.growTimer=0;continue;
+    }
+    e.body.unshift(nh);e.body.pop();
+  }
+}
+function spawnInitialEnemies(){const count=Math.min(1+Math.floor((level||1)*0.6),8);while(enemies.length<count)spawnEnemy();}
+
+function randFreeInLevel(dfCols,dfRows){return{x:2+Math.floor(Math.random()*(dfCols-4)),y:2+Math.floor(Math.random()*(dfRows-4))};}
+
+// ═══ DEVIL FRUIT ═══
+// Spawn a devil fruit at a free position far from all players.
+// Only the host spawns in multiplayer; clients sync via network.
+// Devil fruit only appears in levels 1-3 at a fixed position.
+function spawnDevilFruit(){
+  // Multiplayer: only host generates fruit
+  if(gameMode==='mp'&&!isHost)return;
+  // Don't spawn if one already exists
+  if(devilFruit&&devilFruit.active)return;
+  // Randomly choose level 1-3
+  const dfLevel=1+Math.floor(Math.random()*3);
+  const dfCols=Math.min(INIT_COLS+(dfLevel-1)*EXPAND_STEP,MAX_COLS);
+  const dfRows=Math.min(INIT_ROWS+(dfLevel-1)*EXPAND_STEP,MAX_ROWS);
+  const pos=findDevilFruitPos(dfLevel,dfCols,dfRows);
+  if(!pos)return; // No valid position
+  devilFruit={x:pos.x,y:pos.y,active:true,level:dfLevel,spawnTime:Date.now()};
+  showToast(`😈 恶魔果实出现在关卡${dfLevel}！`);
+}
+
+// Find a free cell in the target level, preferring positions far from any player head.
+// When current level matches dfLevel, avoid occupied cells (walls, etc.).
+function findDevilFruitPos(dfLevel,dfCols,dfRows){
+  const occ=(dfLevel===(level||1))?occupiedSet():null;
+  let bestPos=null,bestDist=-1;
+  for(let t=0;t<800;t++){
+    const pos=randFreeInLevel(dfCols,dfRows);
+    if(occ&&occ.has(`${pos.x},${pos.y}`))continue;
+    let minDist=Infinity;
+    for(const p of players)if(p.alive){
+      const d=Math.abs(pos.x-p.snake[0].x)+Math.abs(pos.y-p.snake[0].y);
+      if(d<minDist)minDist=d;
+    }
+    if(minDist>bestDist){bestDist=minDist;bestPos=pos;}
+    if(bestDist>=12)break; // Far enough, stop early
+  }
+  return bestPos;
+}
+function pickupDevilFruit(pi){
+  if(!devilFruit||!devilFruit.active)return;
+  const p=players[pi];
+  spawnParticles(devilFruit.x,devilFruit.y,C.devilFruit,30);
+  const effects=['invincible','permaPhase','teleportLast','infiniteItems'];
+  const effect=effects[Math.floor(Math.random()*effects.length)];
+  if(effect==='invincible'){p.activePowers.invincible=Date.now()+30000;showToast('😈 无敌30秒！');}
+  else if(effect==='permaPhase'){p.activePowers.permaPhase=true;showToast('😈 永久穿墙！');}
+  else if(effect==='teleportLast'){
+    if(p.level<MAX_LEVEL){
+      const savedLen=p.snake.length;
+      teleportToLevel(pi,MAX_LEVEL);
+      while(p.snake.length<savedLen)p.snake.push({...p.snake[p.snake.length-1]});
+      flashLevel();showToast(`😈 传送至最终关卡${MAX_LEVEL}！保留${savedLen}节身体！`);
+    }else{p.activePowers.invincible=Date.now()+30000;showToast('😈 已在最终关卡！改为无敌30秒！');}
+  }
+  else if(effect==='infiniteItems'){
+    p.infiniteItems=true;p.infiniteItemsUntil=Date.now()+60000;
+    for(let i=0;i<2;i++)if(!p.itemSlots[i])p.itemSlots[i]={...randomItemDef()};
+    showToast('😈 无限道具60秒！');updateItemSlotUI();
+  }
+  devilFruitHolder=pi;
+  devilFruit=null; // Fully clear; active flag is gone with the object
+}
+
+// ═══ PLAYER ═══
+function createLocalPlayer(colorIdx=0){
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+  return{id:'local',name:PLAYER_NAMES[colorIdx]||'玩家',colorIdx,
+    snake:[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy},{x:cx-3,y:cy}],
+    dir:{x:1,y:0},nextDir:{x:1,y:0},dirBuffer:[],visualDir:{x:1,y:0},
+    score:0,level:1,alive:true,activePowers:{},
+    respawnInvulnEnd:Date.now()+2000,lastEatTime:Date.now(),
+    trail:[],combo:0,comboTimer:null,isLocal:true,conn:null,interval:BASE_INTERVAL,
+    itemSlots:[null,null],infiniteItems:false,infiniteItemsUntil:0,petrifiedUntil:0,boosting:false,lastShrinkTime:Date.now(),boostStartTime:0};
+}
+
+// ═══ INIT GAME ═══
+function initGame(){
+  try{
+    COLS=INIT_COLS;ROWS=INIT_ROWS;
+    if(players.length===0)players.push(createLocalPlayer(0));
+    myPlayerIdx=0;
+    particles=[];items=[];enemies=[];trail=[];foods=[];portals=[];
+    fogActive=false;combo=0;winner=null;devilFruit=null;devilFruitHolder=-1;
+    gameStartTime=Date.now();devilFruitNextSpawn=Date.now()+DEVIL_FRUIT_SPAWN_TIME;
+    clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+    for(const p of players){
+      p.alive=true;p.level=1;p.score=0;p.interval=BASE_INTERVAL;
+      const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+      p.snake=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy},{x:cx-3,y:cy}];
+      p.dir={x:1,y:0};p.nextDir={x:1,y:0};p.dirBuffer=[];p.visualDir={x:1,y:0};
+      p.respawnInvulnEnd=Date.now()+2000;p.lastEatTime=Date.now();
+      p.trail=[];p.combo=0;clearTimeout(p.comboTimer);p.activePowers={};
+      p.itemSlots=[null,null];p.infiniteItems=false;p.infiniteItemsUntil=0;
+      p.petrifiedUntil=0;p.boosting=false;p.lastShrinkTime=Date.now();p.boostStartTime=0;
+    }
+    level=1;interval=BASE_INTERVAL;
+    lastLevelUpTime=0;lastLogicTime=0;boostLastToggle=0;
+    // CORRECT ORDER: portals first (so maze avoids them), then maze (creates walls), then foods (avoid walls)
+    placePortals();buildMaze();placeFoods();
+    scheduleItemSpawn();scheduleFogCycle();schedulePortalRefresh();
+    spawnInitialEnemies();updateCamera(true);updateHUD();updateItemSlotUI();
+  }catch(e){
+    const errEl=document.getElementById('error-display');
+    if(errEl){errEl.style.display='block';errEl.textContent='initGame错误: '+e.message;}
+    console.error('initGame error:',e);
+  }
+}
+
+// ═══ LOGIC STEP ═══
+function logicStep(){
+  if(paused||!running)return;
+  try{
+    const now=Date.now();
+    for(let pi=0;pi<players.length;pi++){
+      const p=players[pi];if(!p||!p.alive)continue;
+      if(p.petrifiedUntil&&now<p.petrifiedUntil)continue;
+      if(p.dirBuffer.length>0)p.nextDir=p.dirBuffer.shift();
+      p.dir={...p.nextDir};
+      const canPhase=(p.activePowers.phase&&now<p.activePowers.phase)||(p.activePowers.permaPhase===true);
+      const hasShield=p.activePowers.shield&&now<p.activePowers.shield;
+      const isInvuln=now<p.respawnInvulnEnd;
+      const isInvincible=p.activePowers.invincible&&now<p.activePowers.invincible;
+      let hx=p.snake[0].x+p.dir.x,hy=p.snake[0].y+p.dir.y;
+      let blocked=false; // Flag: player can't move, skip rest of step
+      // Outer wall — check boundary segments vs wall segments
+      if(hx<0||hx>=COLS||hy<0||hy>=ROWS){
+        let isBoundary=false;
+        if(hy<0)isBoundary=isOnBoundarySegment(hx,boundarySegments.top);
+        else if(hy>=ROWS)isBoundary=isOnBoundarySegment(hx,boundarySegments.bottom);
+        else if(hx<0)isBoundary=isOnBoundarySegment(hy,boundarySegments.left);
+        else if(hx>=COLS)isBoundary=isOnBoundarySegment(hy,boundarySegments.right);
+        if(isBoundary){
+          const expanded=expandMap(pi);
+          if(expanded)continue;
+          // No cooldown: always expand or win
+          blocked=true;
+        }else if(canPhase){hx=(hx+COLS)%COLS;hy=(hy+ROWS)%ROWS;}
+        else if(hasShield){delete p.activePowers.shield;teleportPlayer(pi);showToast('🛡️ 护盾抵挡+传送！');continue;}
+        else if(isInvincible||isInvuln){blocked=true;}
+        else{respawnPlayer(pi);continue;}
+      }
+
+      // Inner wall
+      if(!blocked&&isWallAt(hx,hy)){
+        if(canPhase){}
+        else if(hasShield){delete p.activePowers.shield;teleportPlayer(pi);showToast('🛡️ 护盾抵挡+传送！');continue;}
+        else if(isInvincible||isInvuln){blocked=true;}
+        else{respawnPlayer(pi);continue;}
+      }
+      // If player couldn't move, skip self-collision and movement
+      if(blocked)continue;
+      // Self collision
+      if(p.snake.some(c=>c.x===hx&&c.y===hy)){
+        if(hasShield){delete p.activePowers.shield;teleportPlayer(pi);showToast('🛡️ 护盾抵挡+传送！');continue;}
+        else if(isInvincible||isInvuln){continue;}
+        else{respawnPlayer(pi);continue;}
+      }
+      // Portal (cross-level teleport)
+      const portalResult=checkPortals(hx,hy);
+      if(portalResult.teleport){teleportToLevel(pi,portalResult.destLevel);continue;}
+      const head={x:hx,y:hy};p.snake.unshift(head);
+      p.trail.push({x:head.x,y:head.y,time:Date.now()});
+      p.trail=p.trail.filter(t=>t.time>Date.now()-10000);if(p.trail.length>200)p.trail=p.trail.slice(-200);sortedTrailCache=null;
+      // Food
+      let ate=false,growth=0;
+      for(let i=0;i<foods.length;i++){
+        if(hx===foods[i].x&&hy===foods[i].y){
+          const mult=getComboMultiplier(pi);p.score+=foods[i].score*mult;growth=foods[i].growth;ate=true;
+          p.lastEatTime=now;incrementCombo(pi);spawnParticles(hx,hy,foods[i].color,10);replaceFood(i);break;
+        }
+      }
+      // Items on map → pick up into slot
+      for(let i=items.length-1;i>=0;i--){
+        const it=items[i];if(it.x===hx&&it.y===hy){
+          let slotIdx=-1;for(let s=0;s<MAX_ITEM_SLOTS;s++){if(!p.itemSlots[s]){slotIdx=s;break;}}
+          if(slotIdx>=0){p.itemSlots[slotIdx]={type:it.type,emoji:it.emoji,color:it.color,label:it.label,duration:it.duration};items.splice(i,1);showToast(`${it.emoji} ${it.label} → 道具栏${slotIdx+1}`);updateItemSlotUI();}
+          else{showToast(`${it.emoji} 道具栏已满！`);}
+        }
+      }
+      // Devil fruit (only pickable if same level)
+      if(devilFruit&&devilFruit.active&&p.level===devilFruit.level&&hx===devilFruit.x&&hy===devilFruit.y)pickupDevilFruit(pi);
+      // Grow or pop tail
+      if(ate){for(let g=0;g<growth;g++)p.snake.push({...p.snake[p.snake.length-1]});}else p.snake.pop();
+      // Boost: time-based body consumption
+      // Normal: shrink 1 segment every 15s; Boost: shrink 1 segment every 5s
+      const nowMs=Date.now();
+      if(!p.lastShrinkTime)p.lastShrinkTime=nowMs;
+      const shrinkInterval=p.boosting?SHRINK_INTERVAL_BOOST:SHRINK_INTERVAL_NORMAL;
+      const speedPower=p.activePowers.speed&&nowMs<p.activePowers.speed;
+      // Speed power makes boost free (no shrink)
+      const boostMinLen=p.boosting?BOOST_MIN_LENGTH:SHRINK_MIN_LENGTH;
+      if(!speedPower&&nowMs-p.lastShrinkTime>=shrinkInterval&&p.snake.length>boostMinLen){
+        p.snake.pop();p.lastShrinkTime=nowMs;
+        if(p.snake.length<=boostMinLen){
+          p.boosting=false;if(pi===myPlayerIdx){boostBtn.classList.remove('active','free');showToast('⚡ 身体耗尽，停止加速');}
+        }else if(pi===myPlayerIdx){
+          showToast(p.boosting?'⚡ 消耗1节身体':'📉 自然缩减1节');
+        }
+      }
+      // Expire old items
+      items=items.filter(it=>now-it.spawnTime<it.ttl);
+    }
+    // Player vs Player
+    if(gameMode==='mp'&&players.length>=2){
+      for(let i=0;i<players.length;i++){if(!players[i].alive||now<players[i].petrifiedUntil)continue;
+        for(let j=i+1;j<players.length;j++){if(!players[j].alive||now<players[j].petrifiedUntil)continue;
+          let collision=false;for(const sc of players[i].snake){for(const ec of players[j].snake){if(sc.x===ec.x&&sc.y===ec.y){collision=true;break;}}if(collision)break;}
+          if(collision){
+            const isInvI=players[i].activePowers.invincible&&now<players[i].activePowers.invincible;
+            const isInvJ=players[j].activePowers.invincible&&now<players[j].activePowers.invincible;
+            if(isInvI||isInvJ)continue;
+            const hasShieldI=players[i].activePowers.shield&&now<players[i].activePowers.shield;
+            const hasShieldJ=players[j].activePowers.shield&&now<players[j].activePowers.shield;
+            if(hasShieldI){delete players[i].activePowers.shield;teleportPlayer(i);showToast(`🛡️ ${players[i].name}护盾传送！`);continue;}
+            if(hasShieldJ){delete players[j].activePowers.shield;teleportPlayer(j);showToast(`🛡️ ${players[j].name}护盾传送！`);continue;}
+            const isInvulnI=now<players[i].respawnInvulnEnd;const isInvulnJ=now<players[j].respawnInvulnEnd;
+            if(isInvulnI||isInvulnJ)continue;
+            if(players[i].snake.length>players[j].snake.length){spawnParticles(players[j].snake[0].x,players[j].snake[0].y,getPlayerColor(players[j].colorIdx),16);showToast(`⚔️ ${players[i].name}(${players[i].snake.length}节)击败${players[j].name}(${players[j].snake.length}节)！`);respawnPlayer(j);}
+            else if(players[j].snake.length>players[i].snake.length){spawnParticles(players[i].snake[0].x,players[i].snake[0].y,getPlayerColor(players[i].colorIdx),16);showToast(`⚔️ ${players[j].name}(${players[j].snake.length}节)击败${players[i].name}(${players[i].snake.length}节)！`);respawnPlayer(i);}
+            else{showToast(`⚔️ ${players[i].name}和${players[j].name}同长，双双阵亡！`);respawnPlayer(i);respawnPlayer(j);}
+          }
+        }
+      }
+    }
+    // Enemy vs Player: bidirectional head-body collision
+    stepEnemies();
+    outer: for(let ei=enemies.length-1;ei>=0;ei--){
+      const e=enemies[ei];
+      for(let pi=0;pi<players.length;pi++){
+        const p=players[pi];if(!p.alive||now<p.petrifiedUntil)continue;
+        // Check A: player head hits enemy body (including enemy head)
+        const pHead=p.snake[0];
+        let playerHeadHitEnemy=false;
+        for(const ec of e.body){if(pHead.x===ec.x&&pHead.y===ec.y){playerHeadHitEnemy=true;break;}}
+        // Check B: enemy head hits player body (including player head)
+        const eHead=e.body[0];
+        let enemyHeadHitPlayer=false;
+        for(const pc of p.snake){if(eHead.x===pc.x&&eHead.y===pc.y){enemyHeadHitPlayer=true;break;}}
+        if(!playerHeadHitEnemy&&!enemyHeadHitPlayer)continue;
+        // Collision occurred
+        const hasShield=p.activePowers.shield&&now<p.activePowers.shield;
+        const isInvuln=now<p.respawnInvulnEnd;
+        const isInvincible=p.activePowers.invincible&&now<p.activePowers.invincible;
+        if(isInvincible){const bonus=e.body.length*2;p.score+=bonus*getComboMultiplier(pi);incrementCombo(pi);spawnParticles(e.body[0].x,e.body[0].y,C.enemyHead,16);showToast(`👑 ${p.name}无敌反杀猎手蛇！+${bonus}分！`);enemies.splice(ei,1);setTimeout(()=>{if(running&&enemies.length<Math.min(1+Math.floor((level||1)*0.6),8))spawnEnemy();},3000);continue;}
+        if(isInvuln)continue;
+        // Length comparison: longer survives. Shield only triggers if player would die.
+        if(p.snake.length>e.body.length){const bonus=e.body.length*2;p.score+=bonus*getComboMultiplier(pi);incrementCombo(pi);spawnParticles(e.body[0].x,e.body[0].y,C.enemyHead,16);showToast(`🗡️ ${p.name}(${p.snake.length}节)击败猎手蛇(${e.body.length}节)！+${bonus}分！`);enemies.splice(ei,1);setTimeout(()=>{if(running&&enemies.length<Math.min(1+Math.floor((level||1)*0.6),8))spawnEnemy();},3000);}
+        else if(hasShield){delete p.activePowers.shield;teleportPlayer(pi);showToast('🛡️ 护盾抵挡死亡，传送到安全位置！');}
+        else{respawnPlayer(pi);}
+        break outer; // break both loops: respawnPlayer clears enemies[]
+      }
+    }
+    const targetE=Math.min(1+Math.floor((level||1)*0.6),8);
+    while(enemies.length<targetE)spawnEnemy();
+    // Devil fruit: timer-driven spawn
+    if(Date.now()>=devilFruitNextSpawn){
+      spawnDevilFruit();
+      devilFruitNextSpawn=Date.now()+DEVIL_FRUIT_SPAWN_TIME;
+    }
+
+    updateCameraTarget();updateHUD();
+    if(gameMode==='mp'&&isHost)broadcastState();
+  }catch(e){
+    const errEl=document.getElementById('error-display');
+    if(errEl){errEl.style.display='block';errEl.textContent='logicStep错误: '+e.message;}
+    console.error('logicStep error:',e);
+  }
+}
+function teleportPlayer(pi){
+  const p=players[pi];const newPos=randFree();const len=p.snake.length;
+  p.snake=[];for(let i=0;i<len;i++)p.snake.push({x:newPos.x-i,y:newPos.y});
+  p.dir={x:1,y:0};p.nextDir={x:1,y:0};p.dirBuffer=[];p.visualDir={x:1,y:0};
+  p.respawnInvulnEnd=Date.now()+2000;spawnParticles(newPos.x,newPos.y,C.pShield,12);updateCamera(true);
+}
+
+// ═══ RESPAWN ═══
+function respawnPlayer(pi){
+  const p=players[pi];
+  // Devil fruit is global across levels; do NOT clear it on respawn.
+  respawnCount++;
+  COLS=INIT_COLS;ROWS=INIT_ROWS;level=1;
+  p.level=1;p.interval=BASE_INTERVAL;p.score=0;p.activePowers={};p.infiniteItems=false;p.infiniteItemsUntil=0;
+  p.petrifiedUntil=0;p.itemSlots=[null,null];p.boosting=false;p.lastShrinkTime=Date.now();p.boostStartTime=0;
+  clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);fogActive=false;
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+  p.snake=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy},{x:cx-3,y:cy}];
+  p.dir={x:1,y:0};p.nextDir={x:1,y:0};p.dirBuffer=[];p.visualDir={x:1,y:0};
+  p.alive=true;p.respawnInvulnEnd=Date.now()+RESPAWN_INVULN;p.lastEatTime=Date.now();
+  p.trail=[];p.combo=0;clearTimeout(p.comboTimer);
+  enemies=[];items=[];foods=[];portals=[];trail=[];sortedTrailCache=null;lastLevelUpTime=0;
+  if(devilFruitHolder===pi){devilFruitHolder=-1;}
+  placePortals();buildMaze();placeFoods();
+  scheduleItemSpawn();spawnInitialEnemies();scheduleFogCycle();schedulePortalRefresh();
+  for(let i=0;i<players.length;i++){if(i===pi||!players[i].alive)continue;
+    const op=players[i];const len=op.snake.length;op.snake=[];for(let j=0;j<len;j++)op.snake.push({x:cx-j,y:cy});
+    op.dir={x:1,y:0};op.nextDir={x:1,y:0};op.dirBuffer=[];op.visualDir={x:1,y:0};
+    op.respawnInvulnEnd=Date.now()+2000;op.lastEatTime=Date.now();op.trail=[];op.combo=0;
+    op.level=1;op.interval=BASE_INTERVAL;op.activePowers={};op.itemSlots=[null,null];op.infiniteItems=false;op.petrifiedUntil=0;op.boosting=false;op.lastShrinkTime=Date.now();op.boostStartTime=0;
+  }
+  if(pi===myPlayerIdx)boostBtn.classList.remove('active','free');
+  updateCamera(true);updateHUD();updateItemSlotUI();showToast(`${p.name}重生！回到Lv1`);
+}
+
+// ═══ PARTICLES ═══
+function spawnParticles(cx,cy,color,count=8){
+  const cp=cellPx();const sx=(cx+0.5)*cp-camX,sy=(cy+0.5)*cp-camY;
+  for(let i=0;i<count;i++){const angle=(Math.PI*2*i)/count+Math.random()*0.5;const speed=1.5+Math.random()*3;
+    particles.push({x:sx,y:sy,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,alpha:1,r:2+Math.random()*2.5,color:C.particleSet[Math.floor(Math.random()*C.particleSet.length)]});
+  }
+}
+function updateParticlesRender(){particles=particles.filter(p=>p.alpha>0.02);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=0.06;p.alpha-=0.014;p.r*=0.988;}}
+
+// ═══ MAP EXPANSION ═══
+function expandMap(pi){
+  const p=players[pi];
+  if(COLS>=MAX_COLS||ROWS>=MAX_ROWS){winner=pi;if(gameMode==='mp')broadcastWin(pi);gameOverWin(pi);return false;}
+  // Devil fruit is global across levels; do NOT clear it on map expansion.
+  COLS=Math.min(COLS+EXPAND_STEP,MAX_COLS);ROWS=Math.min(ROWS+EXPAND_STEP,MAX_ROWS);lastLevelUpTime=Date.now();
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);const len=p.snake.length;
+  p.snake=[];for(let i=0;i<len;i++)p.snake.push({x:cx-i,y:cy});
+  p.dir={x:1,y:0};p.nextDir={x:1,y:0};p.dirBuffer=[];p.visualDir={x:1,y:0};
+  p.boosting=false;if(pi===myPlayerIdx)boostBtn.classList.remove('active','free');
+  p.level++;p.interval=Math.max(BASE_INTERVAL-(p.level-1)*SPEED_DELTA,70);p.respawnInvulnEnd=Date.now()+RESPAWN_INVULN;
+  enemies=[];items=[];foods=[];portals=[];trail=[];sortedTrailCache=null;
+  level=p.level;interval=p.interval;
+  placePortals();buildMaze();placeFoods();
+  scheduleItemSpawn();spawnInitialEnemies();flashLevel();
+  showToast(`🗺️ ${p.name}关卡${p.level}！地图${COLS}×${ROWS}`);updateHUD();updateCamera(true);
+  if(gameMode==='mp'&&isHost)broadcastState();return true;
+}
+
+// ═══ FOG/COMBO ═══
+function scheduleFogCycle(){
+  clearTimeout(fogCycleTimer);
+  if((level||1)<FOG_START_LEVEL){fogEl.textContent='-';fogActive=false;fogCycleTimer=setTimeout(()=>scheduleFogCycle(),5000);return;}
+  const fogInt=FOG_BASE_INTERVAL;
+  fogCycleTimer=setTimeout(()=>{
+    if(running&&!paused){
+      fogActive=true;fogEl.textContent='🌙';showToast('🌙 迷雾降临！视野4×4，持续10秒！');
+      fogEndTimer=setTimeout(()=>{
+        fogActive=false;fogEl.textContent='-';showToast('☀️ 迷雾消散');
+        scheduleFogCycle();
+      },FOG_DURATION);
+    }else{scheduleFogCycle();}
+  },fogInt);
+}
+function incrementCombo(pi){const p=players[pi];if(!p)return;p.combo++;clearTimeout(p.comboTimer);p.comboTimer=setTimeout(()=>{p.combo=0;if(pi===myPlayerIdx)comboEl.textContent='-';},3000);if(pi===myPlayerIdx)comboEl.textContent=p.combo+'x';}
+function getComboMultiplier(pi){const p=players[pi];return(!p||p.combo<=1)?1:Math.min(p.combo,10);}
+
+// ═══ CAMERA / HUD ═══
+function updateCameraTarget(){
+  const p=players[myPlayerIdx];if(!p||!p.alive)return;
+  const cp=cellPx();camTargetX=(p.snake[0].x-VIEWPORT_COLS/2+0.5)*cp;camTargetY=(p.snake[0].y-VIEWPORT_COLS/2+0.5)*cp;
+}
+function updateCamera(instant){
+  updateCameraTarget();
+  if(instant){camX=camTargetX;camY=camTargetY;}
+}
+function updateHUD(){
+  const p=players[myPlayerIdx];if(!p)return;
+  scoreEl.textContent=p.score;levelEl.textContent=p.level||1;snakeLenEl.textContent=p.snake.length;bestEl.textContent=best;
+  const elapsed=Math.floor((Date.now()-gameStartTime)/1000);const tMins=Math.floor(elapsed/60),tSecs=elapsed%60;timeEl.textContent=tMins+':'+tSecs.toString().padStart(2,'0');
+  let powersHTML='';const now=Date.now();
+  for(const[key,endTime]of Object.entries(p.activePowers)){
+    if(endTime===true||now<endTime){
+      const remaining=key==='permaPhase'||endTime===true?'∞':Math.round((endTime-now)/1000)+'s';
+      const def=NEW_ITEM_DEFS.find(d=>d.type===key);
+      const emoji=def?def.emoji:key==='permaPhase'?'👻':key==='invincible'?'👑':'⚡';
+      const color=def?def.color:'#fff';
+      powersHTML+=`<span class="power-badge" style="background:${color}22;border:1px solid ${color}">${emoji}${remaining}</span>`;
+    }
+  }
+  if(p.infiniteItems&&now<p.infiniteItemsUntil)powersHTML+=`<span class="power-badge" style="background:#ff004422;border:1px solid #ff0044">😈∞${Math.round((p.infiniteItemsUntil-now)/1000)}s</span>`;
+  powersBar.innerHTML=powersHTML;
+  // Devil fruit coordinate display (shown near minimap via separate element)
+  if(devilFruit&&devilFruit.active){
+    const p=players[myPlayerIdx];const head=p?p.snake[0]:{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)};
+    const dfCoords=document.getElementById('devil-fruit-coords');
+    if(dfCoords){
+      dfCoords.style.display='block';
+      if(p&&p.level===devilFruit.level){
+        const dx=devilFruit.x-head.x,dy=devilFruit.y-head.y;
+        const dist=Math.abs(dx)+Math.abs(dy);
+        let dirText='';
+        if(dist===0){dirText='就在你脚下！';}
+        else{
+          const dirs=[];
+          if(dy<0)dirs.push('上');if(dy>0)dirs.push('下');
+          if(dx<0)dirs.push('左');if(dx>0)dirs.push('右');
+          dirText=dirs.join('')+` ${dist}格`;
+        }
+        dfCoords.textContent=`😈 ${dirText} 坐标(${devilFruit.x},${devilFruit.y})`;
+      }else{
+        dfCoords.textContent=`😈 恶魔果实在关卡${devilFruit.level}`;
+      }
+    }
+    devilFruitInfo.style.display='none';
+  }else{
+    devilFruitInfo.style.display='none';
+    const dfCoords=document.getElementById('devil-fruit-coords');
+    if(dfCoords)dfCoords.style.display='none';
+  }
+}
+function flashLevel(){lvFlash.classList.add('show');setTimeout(()=>lvFlash.classList.remove('show'),1200);}
+function updateDirIndicator(){
+  const p=players[myPlayerIdx];if(!p)return;
+  const key=`${p.visualDir.x},${p.visualDir.y}`;
+  const dirSymbols={'1,0':'→','-1,0':'←','0,-1':'↑','0,1':'↓'};
+  dirInd.textContent=dirSymbols[key]||'?';dirInd.style.color='rgba(78,255,145,0.6)';dirInd.style.borderColor='rgba(78,255,145,0.2)';
+}
+
+// ═══ LOOP (unified rAF — no setInterval/setTimeout for logic, no timer restarts) ═══
+let lastLogicTime=0;
+function getLogicInterval(){
+  try{
+    const p=players[myPlayerIdx];
+    let t=p?(p.interval||BASE_INTERVAL):BASE_INTERVAL;
+    if(p&&p.boosting)t=Math.max(t*0.5,60);
+    return t;
+  }catch(e){return BASE_INTERVAL;}
+}
+function mainLoop(timestamp){
+  if(!running)return;
+  // ── Logic ──
+  if(!paused){
+    if(lastLogicTime===0)lastLogicTime=timestamp;
+    const interval=getLogicInterval();
+    let steps=0;
+    while(timestamp-lastLogicTime>=interval&&steps<3){
+      lastLogicTime+=interval;steps++;
+      try{logicStep();}catch(e){
+        console.error('logicStep error:',e);
+        const errEl=document.getElementById('error-display');
+        if(errEl){errEl.style.display='block';errEl.textContent='逻辑错误: '+e.message;}
+      }
+    }
+    // Prevent spiral: if we're too far behind, reset to now
+    if(timestamp-lastLogicTime>interval*3)lastLogicTime=timestamp;
+  }
+  // ── Render ──
+  try{
+    fpsFrames++;if(timestamp-fpsTime>=1000){currentFps=fpsFrames;fpsFrames=0;fpsTime=timestamp;fpsEl.textContent=currentFps;}
+    try{updateCameraTarget();}catch(e){}
+    camX+=(camTargetX-camX)*0.14;camY+=(camTargetY-camY)*0.14;
+    updateParticlesRender();draw();drawMinimap();
+  }catch(e){
+    console.error('renderFrame error:',e);
+    const errEl=document.getElementById('error-display');
+    if(errEl){errEl.style.display='block';errEl.textContent='渲染错误: '+e.message+' (行'+(e.lineNumber||'?')+')';}
+  }
+  rafId=requestAnimationFrame(mainLoop);
+}
+function startGameLoop(){if(rafId)cancelAnimationFrame(rafId);lastLogicTime=0;fpsTime=performance.now();fpsFrames=0;rafId=requestAnimationFrame(mainLoop);}
+function stopGameLoop(){if(rafId){cancelAnimationFrame(rafId);rafId=null;}}
+function toggleBoost(){
+  try{
+    const p=players[myPlayerIdx];if(!p||!p.alive||!running||paused)return;
+    if(p.petrifiedUntil&&Date.now()<p.petrifiedUntil)return;
+    const speedPower=p.activePowers&&p.activePowers.speed&&Date.now()<p.activePowers.speed;
+    if(!p.boosting){
+      if(!speedPower&&p.snake&&p.snake.length<=BOOST_MIN_LENGTH){showToast('⚡ 身体太短，需'+(BOOST_MIN_LENGTH+1)+'节以上才能加速！');return;}
+      p.boosting=true;p.boostStartTime=Date.now();p.lastShrinkTime=Date.now();lastLogicTime=0;
+      if(speedPower){boostBtn.classList.add('active','free');showToast('⚡ 免费加速！（道具）');}
+      else{boostBtn.classList.add('active');showToast('⚡ 加速！每5秒消耗1节身体');}
+    }else{
+      p.boosting=false;boostBtn.classList.remove('active','free');lastLogicTime=0;showToast('⚡ 停止加速');
+    }
+  }catch(e){console.error('toggleBoost error:',e);}
+}
+function updateBoostBtnState(){
+  try{
+    const p=players[myPlayerIdx];if(!p)return;
+    const speedPower=p.activePowers&&p.activePowers.speed&&Date.now()<p.activePowers.speed;
+    if(p.boosting){
+      if(speedPower){boostBtn.classList.add('active','free');}
+      else{boostBtn.classList.add('active');boostBtn.classList.remove('free');
+        if(p.snake&&p.snake.length<=BOOST_MIN_LENGTH){p.boosting=false;boostBtn.classList.remove('active','free');showToast('⚡ 身体耗尽，停止加速');}}
+    }else{boostBtn.classList.remove('active','free');}
+  }catch(e){console.error('updateBoostBtnState error:',e);}
+}
+
+// ═══ DRAW ═══
+function draw(){
+  const cp=cellPx();const W=canvas.width,H=canvas.height;
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.translate(-camX,-camY);
+  const startCol=Math.floor(camX/cp)-1,endCol=Math.ceil((camX+W)/cp)+1;
+  const startRow=Math.floor(camY/cp)-1,endRow=Math.ceil((camY+H)/cp)+1;
+  const c0=Math.max(0,startCol),c1=Math.min(COLS,endCol);
+  const r0=Math.max(0,startRow),r1=Math.min(ROWS,endRow);
+  // Boundary segments (blue glow) and wall segments (red wall) on perimeter
+  const lv=Math.min(level||1,7);
+  const glowThick=Math.max(2,6-lv);
+  const glowAlpha=Math.max(0.15,0.5-lv*0.07);
+  ctx.lineWidth=glowThick;ctx.lineCap='round';
+  // Helper: draw edge segments
+  const drawEdge=(edge,segs,dimLen)=>{
+    // Build a map of which positions are boundary
+    const isB=new Array(dimLen).fill(false);
+    for(const s of segs){for(let i=Math.max(0,s.start);i<Math.min(dimLen,s.end);i++)isB[i]=true;}
+    // Draw boundary (blue glow) and wall (red) segments
+    let i=0;
+    while(i<dimLen){
+      if(isB[i]){
+        // Boundary segment: blue glow
+        let j=i;while(j<dimLen&&isB[j])j++;
+        ctx.strokeStyle=`rgba(58,127,255,${glowAlpha})`;ctx.lineWidth=glowThick;
+        if(edge==='top'){ctx.beginPath();ctx.moveTo(i*cp,-cp*0.3);ctx.lineTo(j*cp,-cp*0.3);ctx.stroke();}
+        else if(edge==='bottom'){ctx.beginPath();ctx.moveTo(i*cp,ROWS*cp+cp*0.3);ctx.lineTo(j*cp,ROWS*cp+cp*0.3);ctx.stroke();}
+        else if(edge==='left'){ctx.beginPath();ctx.moveTo(-cp*0.3,i*cp);ctx.lineTo(-cp*0.3,j*cp);ctx.stroke();}
+        else if(edge==='right'){ctx.beginPath();ctx.moveTo(COLS*cp+cp*0.3,i*cp);ctx.lineTo(COLS*cp+cp*0.3,j*cp);ctx.stroke();}
+        // Inner glow
+        ctx.strokeStyle=`rgba(58,127,255,${glowAlpha*0.4})`;ctx.lineWidth=glowThick*2.5;
+        if(edge==='top'){ctx.beginPath();ctx.moveTo(i*cp,-cp*0.3);ctx.lineTo(j*cp,-cp*0.3);ctx.stroke();}
+        else if(edge==='bottom'){ctx.beginPath();ctx.moveTo(i*cp,ROWS*cp+cp*0.3);ctx.lineTo(j*cp,ROWS*cp+cp*0.3);ctx.stroke();}
+        else if(edge==='left'){ctx.beginPath();ctx.moveTo(-cp*0.3,i*cp);ctx.lineTo(-cp*0.3,j*cp);ctx.stroke();}
+        else if(edge==='right'){ctx.beginPath();ctx.moveTo(COLS*cp+cp*0.3,i*cp);ctx.lineTo(COLS*cp+cp*0.3,j*cp);ctx.stroke();}
+        i=j;
+      }else{
+        // Wall segment: red wall
+        let j=i;while(j<dimLen&&!isB[j])j++;
+        ctx.strokeStyle=C.innerWallEdge;ctx.lineWidth=Math.max(3,cp*0.3);
+        if(edge==='top'){ctx.beginPath();ctx.moveTo(i*cp,-cp*0.2);ctx.lineTo(j*cp,-cp*0.2);ctx.stroke();}
+        else if(edge==='bottom'){ctx.beginPath();ctx.moveTo(i*cp,ROWS*cp+cp*0.2);ctx.lineTo(j*cp,ROWS*cp+cp*0.2);ctx.stroke();}
+        else if(edge==='left'){ctx.beginPath();ctx.moveTo(-cp*0.2,i*cp);ctx.lineTo(-cp*0.2,j*cp);ctx.stroke();}
+        else if(edge==='right'){ctx.beginPath();ctx.moveTo(COLS*cp+cp*0.2,i*cp);ctx.lineTo(COLS*cp+cp*0.2,j*cp);ctx.stroke();}
+        // Red glow
+        ctx.strokeStyle=C.innerWallGlow;ctx.lineWidth=Math.max(6,cp*0.5);
+        if(edge==='top'){ctx.beginPath();ctx.moveTo(i*cp,-cp*0.2);ctx.lineTo(j*cp,-cp*0.2);ctx.stroke();}
+        else if(edge==='bottom'){ctx.beginPath();ctx.moveTo(i*cp,ROWS*cp+cp*0.2);ctx.lineTo(j*cp,ROWS*cp+cp*0.2);ctx.stroke();}
+        else if(edge==='left'){ctx.beginPath();ctx.moveTo(-cp*0.2,i*cp);ctx.lineTo(-cp*0.2,j*cp);ctx.stroke();}
+        else if(edge==='right'){ctx.beginPath();ctx.moveTo(COLS*cp+cp*0.2,i*cp);ctx.lineTo(COLS*cp+cp*0.2,j*cp);ctx.stroke();}
+        i=j;
+      }
+    }
+  };
+  drawEdge('top',boundarySegments.top,COLS);
+  drawEdge('bottom',boundarySegments.bottom,COLS);
+  drawEdge('left',boundarySegments.left,ROWS);
+  drawEdge('right',boundarySegments.right,ROWS);
+  ctx.lineCap='butt';
+  // Grid
+  ctx.strokeStyle=C.grid;ctx.lineWidth=0.5;ctx.beginPath();
+  for(let c=c0;c<=c1;c++){ctx.moveTo(c*cp,r0*cp);ctx.lineTo(c*cp,r1*cp);}
+  for(let r=r0;r<=r1;r++){ctx.moveTo(c0*cp,r*cp);ctx.lineTo(c1*cp,r*cp);}ctx.stroke();
+  // Trail
+  const p0=players[myPlayerIdx];
+  if(p0){const trailNow=Date.now();ctx.fillStyle=C.trailColor;
+    for(const t of p0.trail){const age=(trailNow-t.time)/10000;if(age>=1||t.x<c0-1||t.x>c1+1||t.y<r0-1||t.y>r1+1)continue;
+      ctx.globalAlpha=Math.max(0,0.06-age*0.06);ctx.fillRect(t.x*cp,t.y*cp,cp,cp);}ctx.globalAlpha=1;
+  }
+  // Walls (glow first, then solid)
+  ctx.fillStyle=C.innerWallGlow;for(const w of wallCoords){if(w.x<c0-1||w.x>c1+1||w.y<r0-1||w.y>r1+1)continue;ctx.fillRect(w.x*cp-1,w.y*cp-1,cp+2,cp+2);}
+  ctx.fillStyle=C.innerWall;ctx.strokeStyle=C.innerWallEdge;ctx.lineWidth=1.2;
+  for(const w of wallCoords){if(w.x<c0-1||w.x>c1+1||w.y<r0-1||w.y>r1+1)continue;const px=w.x*cp+1,py=w.y*cp+1,sz=cp-2;roundRect(ctx,px,py,sz,sz,3);ctx.fill();ctx.stroke();}
+  // Portals
+  for(const p of portals){drawPortal(p.pos.x,p.pos.y,p.color,cp);}
+  // Devil fruit (only visible on same level)
+  if(devilFruit&&devilFruit.active){
+    const p0=players[myPlayerIdx];
+    if(p0&&p0.level===devilFruit.level){
+      const dfx=(devilFruit.x+0.5)*cp,dfy=(devilFruit.y+0.5)*cp;
+      const pulse=1+0.2*Math.sin(Date.now()/200);
+      const gr=ctx.createRadialGradient(dfx,dfy,0,dfx,dfy,cp*1.5*pulse);
+      gr.addColorStop(0,'rgba(255,0,68,0.5)');gr.addColorStop(0.5,'rgba(255,0,68,0.2)');gr.addColorStop(1,'transparent');
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(dfx,dfy,cp*1.5*pulse,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=C.devilFruit;ctx.beginPath();ctx.arc(dfx,dfy,cp*0.35*pulse,0,Math.PI*2);ctx.fill();
+      ctx.font=`${Math.round(cp*0.5)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.fillText('😈',dfx,dfy);
+    }
+  }
+  // Food
+  const nowMs=Date.now();
+  for(const f of foods){if(f.x<c0-1||f.x>c1+1||f.y<r0-1||f.y>r1+1)continue;
+    const fx=(f.x+0.5)*cp,fy=(f.y+0.5)*cp;
+    const gr=ctx.createRadialGradient(fx,fy,0,fx,fy,cp*1.2);gr.addColorStop(0,f.glow);gr.addColorStop(1,'transparent');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(fx,fy,cp*1.2,0,Math.PI*2);ctx.fill();
+    const pulse=1+0.15*Math.sin(nowMs/300);const r=cp*0.35*pulse;
+    ctx.fillStyle=f.color;ctx.beginPath();ctx.arc(fx,fy,r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.2)';ctx.beginPath();ctx.arc(fx-r*0.3,fy-r*0.3,r*0.25,0,Math.PI*2);ctx.fill();
+    if(f.type==='gold'||f.type==='green'){ctx.font=`bold ${Math.round(cp*0.3)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fillText(f.type==='gold'?'$':'+',fx,fy);}
+  }
+  // Items on map
+  for(const it of items){if(it.x<c0-1||it.x>c1+1||it.y<r0-1||it.y>r1+1)continue;
+    const px=(it.x+0.5)*cp,py=(it.y+0.5)*cp;
+    const age=(nowMs-it.spawnTime)/it.ttl;const alpha=age>0.7?1-(age-0.7)/0.3:1;ctx.globalAlpha=alpha;
+    const gr=ctx.createRadialGradient(px,py,0,px,py,cp);gr.addColorStop(0,it.color+'55');gr.addColorStop(1,'transparent');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(px,py,cp,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=it.color+'22';ctx.beginPath();ctx.arc(px,py,cp*0.4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=it.color;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,cp*0.4,0,Math.PI*2);ctx.stroke();
+    ctx.font=`${Math.round(cp*0.38)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.fillText(it.emoji,px,py);ctx.globalAlpha=1;
+  }
+  // Enemy snakes
+  for(const e of enemies){
+    const isPetr=e.petrifiedUntil&&nowMs<e.petrifiedUntil;
+    if(isPetr){ctx.globalAlpha=0.7;drawSnakeModel(e.body,e.dir,'#888','#666','#555','#ccc','rgba(136,136,136,0.15)',true,cp);
+      ctx.font=`${Math.round(cp*0.3)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#aaa';ctx.fillText('🪨',(e.body[0].x+0.5)*cp,(e.body[0].y+0.5)*cp);ctx.globalAlpha=1;
+    }else if(e.isGuardian){
+      const gr=ctx.createRadialGradient((e.body[0].x+0.5)*cp,(e.body[0].y+0.5)*cp,0,(e.body[0].x+0.5)*cp,(e.body[0].y+0.5)*cp,cp*1.5);
+      gr.addColorStop(0,'rgba(255,0,68,0.3)');gr.addColorStop(1,'transparent');
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc((e.body[0].x+0.5)*cp,(e.body[0].y+0.5)*cp,cp*1.5,0,Math.PI*2);ctx.fill();
+      drawSnakeModel(e.body,e.dir,'#ff0044','#cc0033','#8b0022','#fff','rgba(255,0,68,0.25)',true,cp);
+    }else{drawSnakeModel(e.body,e.dir,C.enemyHead,C.enemyBody,C.enemyTail,'#fff',C.enemyGlow,true,cp);}
+  }
+  // Player snakes
+  for(let i=0;i<players.length;i++){
+    const p=players[i];if(!p.alive)continue;
+    const col=getPlayerColor(p.colorIdx);const isLocal=i===myPlayerIdx;
+    const isInvis=p.activePowers.invisible&&nowMs<p.activePowers.invisible;
+    const isPetr=p.petrifiedUntil&&nowMs<p.petrifiedUntil;
+    const isInvuln=nowMs<p.respawnInvulnEnd;
+    const hasPhase=(p.activePowers.phase&&nowMs<p.activePowers.phase)||(p.activePowers.permaPhase===true);
+    const isInvinc=p.activePowers.invincible&&nowMs<p.activePowers.invincible;
+    if(isPetr){ctx.globalAlpha=0.7;drawSnakeModel(p.snake,p.dir,'#888','#666','#555','#ccc','rgba(136,136,136,0.15)',false,cp,i);
+      ctx.font=`${Math.round(cp*0.3)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#aaa';ctx.fillText('🪨',(p.snake[0].x+0.5)*cp,(p.snake[0].y+0.5)*cp);ctx.globalAlpha=1;
+    }else if(isInvis&&!isLocal){continue;}
+    else if(isInvis&&isLocal){ctx.globalAlpha=0.2;drawSnakeModel(p.snake,p.dir,col,lerpHex(col,'#000',0.5),lerpHex(col,'#000',0.7),C.eyeWhite,col+'15',false,cp,i);ctx.globalAlpha=1;}
+    else{
+      if(isInvuln)ctx.globalAlpha=Math.floor(nowMs/150)%2===0?0.35:0.85;
+      else if(hasPhase)ctx.globalAlpha=0.55;
+      drawSnakeModel(p.snake,p.dir,col,lerpHex(col,'#000',0.5),lerpHex(col,'#000',0.7),C.eyeWhite,col+'40',false,cp,i);ctx.globalAlpha=1;
+    }
+    if(!isInvis||isLocal){ctx.font=`bold ${Math.round(cp*0.28)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=col+'99';ctx.fillText(p.name,(p.snake[0].x+0.5)*cp,(p.snake[0].y-0.8)*cp);}
+    if(isInvinc){ctx.font=`${Math.round(cp*0.35)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#ffd95a';ctx.fillText('👑',(p.snake[0].x+0.5)*cp,(p.snake[0].y-1.2)*cp);}
+    try{if(p.boosting&&i===myPlayerIdx&&!fogActive){
+      const h=p.snake[0];const hx=(h.x+0.5)*cp,hy=(h.y+0.5)*cp;
+      const speedPower=p.activePowers.speed&&nowMs<p.activePowers.speed;
+      const glowColor=speedPower?'rgba(78,255,145,0.4)':'rgba(255,159,67,0.4)';
+      const glowColor2=speedPower?'rgba(78,255,145,0.2)':'rgba(255,159,67,0.2)';
+      const sGr=ctx.createRadialGradient(hx,hy,cp*0.2,hx,hy,cp*2);sGr.addColorStop(0,glowColor);sGr.addColorStop(0.5,glowColor2);sGr.addColorStop(1,'transparent');
+      ctx.fillStyle=sGr;ctx.beginPath();ctx.arc(hx,hy,cp*2,0,Math.PI*2);ctx.fill();
+    }}catch(e){console.error('boostGlow draw error:',e);}
+  }
+  if(p0&&!fogActive){const h=p0.snake[0];const hx=(h.x+0.5)*cp,hy=(h.y+0.5)*cp;
+    const headGr=ctx.createRadialGradient(hx,hy,0,hx,hy,cp*1.5);headGr.addColorStop(0,getPlayerColor(p0.colorIdx)+'40');headGr.addColorStop(1,'transparent');
+    ctx.fillStyle=headGr;ctx.beginPath();ctx.arc(hx,hy,cp*1.5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  // Particles
+  for(const p of particles){ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+  // Fog overlay
+  if(fogActive&&p0){const head=p0.snake[0];
+    const sx=(head.x+0.5)*cp-camX,sy=(head.y+0.5)*cp-camY;
+    const clearPx=2.5*cp;const outerPx=clearPx+cp*0.8;
+    ctx.save();
+    const fogGr=ctx.createRadialGradient(sx,sy,clearPx,sx,sy,outerPx);
+    fogGr.addColorStop(0,'rgba(5,5,20,0)');fogGr.addColorStop(0.4,'rgba(5,5,20,0)');fogGr.addColorStop(0.7,'rgba(5,5,20,0.7)');fogGr.addColorStop(1,'rgba(5,5,20,0.92)');
+    ctx.fillStyle=fogGr;ctx.fillRect(0,0,W,H);
+    // Direction arrow in fog
+    const arrowLen=cp*1.5;const ax=sx+p0.visualDir.x*arrowLen,ay=sy+p0.visualDir.y*arrowLen;
+    ctx.strokeStyle='rgba(78,255,145,0.6)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ax,ay);ctx.stroke();
+    const arrowAngle=Math.atan2(p0.visualDir.y,p0.visualDir.x);const arrowSize=cp*0.5;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax-arrowSize*Math.cos(arrowAngle-0.5),ay-arrowSize*Math.sin(arrowAngle-0.5));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax-arrowSize*Math.cos(arrowAngle+0.5),ay-arrowSize*Math.sin(arrowAngle+0.5));ctx.stroke();
+    ctx.restore();
+  }
+  // Devil fruit direction arrow (only on same level)
+  if(devilFruit&&devilFruit.active&&p0&&p0.level===devilFruit.level){
+    const head=p0.snake[0];
+    const dfx=(devilFruit.x+0.5)*cp-camX,dfy=(devilFruit.y+0.5)*cp-camY;
+    const onScreen=dfx>=-cp&&dfx<=W+cp&&dfy>=-cp&&dfy<=H+cp;
+    if(!onScreen){
+      const cx=W/2,cy=H/2;
+      const angle=Math.atan2(dfy-cy,dfx-cx);
+      const edgeDist=Math.min(W,H)*0.42;
+      const ax=cx+Math.cos(angle)*edgeDist,ay=cy+Math.sin(angle)*edgeDist;
+      ctx.save();
+      ctx.translate(ax,ay);ctx.rotate(angle);
+      ctx.fillStyle='rgba(255,0,68,0.85)';ctx.strokeStyle='rgba(255,0,68,0.5)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,5);ctx.lineTo(-6,-5);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Edge proximity warning
+  if(p0){const head=p0.snake[0];const distToEdge=Math.min(head.x,head.y,COLS-1-head.x,ROWS-1-head.y);
+    if(distToEdge<=4&&!fogActive){const intensity=Math.max(0,(4-distToEdge)/4)*0.3;ctx.strokeStyle=`rgba(58,127,255,${intensity})`;ctx.lineWidth=3;ctx.strokeRect(1,1,W-2,H-2);}
+  }
+}
+
+// ═══ SNAKE MODEL ═══
+function drawSnakeModel(body,d,colorHead,colorBody,colorTail,eyeColor,glowColor,isEnemy,cp,playerIdx){
+  if(!cp)cp=cellPx();const len=body.length;const pad=Math.max(1,cp*0.08);
+  // Connectors
+  ctx.lineWidth=cp-pad*2;ctx.lineCap='round';
+  for(let i=1;i<len;i++){const s=body[i],prev=body[i-1];
+    const dx=Math.abs(prev.x-s.x),dy=Math.abs(prev.y-s.y);
+    if(dx<=1&&dy<=1&&(dx+dy>0)){
+      const col=isEnemy?getEnemyColor(i,len):(playerIdx!==undefined?lerpHex(getPlayerColor(playerIdx),lerpHex(getPlayerColor(playerIdx),'#000',0.7),i/(len-1)):getSnakeColor(i,len));
+      ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo((s.x+0.5)*cp,(s.y+0.5)*cp);ctx.lineTo((prev.x+0.5)*cp,(prev.y+0.5)*cp);ctx.stroke();
+    }
+  }
+  ctx.lineCap='butt';
+  // Segments
+  for(let i=len-1;i>=0;i--){const s=body[i];const sx=(s.x+0.5)*cp,sy=(s.y+0.5)*cp;
+    const halfSz=cp/2-pad;const col=isEnemy?getEnemyColor(i,len):(playerIdx!==undefined?lerpHex(getPlayerColor(playerIdx),lerpHex(getPlayerColor(playerIdx),'#000',0.7),i/(len-1)):getSnakeColor(i,len));
+    const sizeMul=i===len-1?0.55:i>=len-2?0.75:1;const drawHalf=halfSz*sizeMul;
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,drawHalf,0,Math.PI*2);ctx.fill();
+    if(i>0&&i%3===0&&!isEnemy){ctx.fillStyle='rgba(255,255,255,0.06)';ctx.beginPath();ctx.arc(sx,sy,drawHalf*0.6,0,Math.PI*2);ctx.fill();}
+  }
+  // Head
+  if(len>0){const h=body[0];const hx=(h.x+0.5)*cp,hy=(h.y+0.5)*cp;const headSize=cp/2-pad+2;
+    if(!isEnemy){const hGr=ctx.createRadialGradient(hx,hy,headSize*0.3,hx,hy,headSize*1.3);hGr.addColorStop(0,glowColor);hGr.addColorStop(1,'transparent');ctx.fillStyle=hGr;ctx.beginPath();ctx.arc(hx,hy,headSize*1.3,0,Math.PI*2);ctx.fill();}
+    ctx.fillStyle=colorHead;ctx.beginPath();ctx.arc(hx,hy,headSize,0,Math.PI*2);ctx.fill();
+    // Eyes
+    const eyeOffX=d.x*cp*0.18+d.y*cp*0.12;const eyeOffY=d.y*cp*0.18+d.x*cp*0.12;
+    const e1x=hx+eyeOffX-d.y*cp*0.16,e1y=hy+eyeOffY-d.x*cp*0.16;
+    const e2x=hx+eyeOffX+d.y*cp*0.16,e2y=hy+eyeOffY+d.x*cp*0.16;
+    const er=cp*0.1;
+    ctx.fillStyle=eyeColor;ctx.beginPath();ctx.arc(e1x,e1y,er,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(e2x,e2y,er,0,Math.PI*2);ctx.fill();
+    const pupilOff=er*0.3;ctx.fillStyle=C.eyePupil;
+    ctx.beginPath();ctx.arc(e1x+d.x*pupilOff,e1y+d.y*pupilOff,er*0.55,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(e2x+d.x*pupilOff,e2y+d.y*pupilOff,er*0.55,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.4)';
+    ctx.beginPath();ctx.arc(e1x-er*0.15,e1y-er*0.15,er*0.2,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(e2x-er*0.15,e2y-er*0.15,er*0.2,0,Math.PI*2);ctx.fill();
+    if(isEnemy){ctx.fillStyle='#ff2200';ctx.beginPath();ctx.arc(e1x+d.x*pupilOff,e1y+d.y*pupilOff,er*0.35,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(e2x+d.x*pupilOff,e2y+d.y*pupilOff,er*0.35,0,Math.PI*2);ctx.fill();}
+    // Tongue
+    const tonguePhase=(Date.now()%1500)/1500;if(tonguePhase<0.4&&!isEnemy){
+      const tongueLen=cp*0.45*tonguePhase/0.4;const tx=hx+d.x*(headSize+tongueLen),ty=hy+d.y*(headSize+tongueLen);
+      ctx.strokeStyle='#ff3333';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(hx+d.x*headSize,hy+d.y*headSize);ctx.lineTo(tx,ty);ctx.stroke();
+      const forkLen=cp*0.12;const perpX=-d.y*forkLen,perpY=d.x*forkLen;
+      ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx+d.x*forkLen+perpX,ty+d.y*forkLen+perpY);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx+d.x*forkLen-perpX,ty+d.y*forkLen-perpY);ctx.stroke();
+    }
+    if(isEnemy&&len>4){ctx.font=`bold ${Math.round(cp*0.3)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,107,53,0.75)';ctx.fillText(len,hx,hy-cp*0.8);}
+  }
+}
+
+// ═══ PORTAL DRAW ═══
+function drawPortal(px,py,color,cp){
+  const cx=(px+0.5)*cp,cy=(py+0.5)*cp;const t=Date.now()/400;const r=cp*0.42;
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r,t%(Math.PI*2),(t+Math.PI*1.5)%(Math.PI*2));ctx.stroke();
+  const gr=ctx.createRadialGradient(cx,cy,0,cx,cy,cp*0.6);gr.addColorStop(0,color+'44');gr.addColorStop(1,'transparent');
+  ctx.fillStyle=gr;ctx.beginPath();ctx.arc(cx,cy,cp*0.6,0,Math.PI*2);ctx.fill();
+  ctx.font=`${Math.round(cp*0.32)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText('🌀',cx,cy);
+}
+
+// ═══ MINIMAP ═══
+function drawMinimap(){
+  const mw=mmCanvas.width,mh=mmCanvas.height;const mmRadius=8;
+  mmCtx.fillStyle='#080810';mmCtx.fillRect(0,0,mw,mh);
+  const head=players[myPlayerIdx]?players[myPlayerIdx].snake[0]:{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)};
+  const mmScale=mw/(mmRadius*2);const mmOffX=mw/2,mmOffY=mh/2;
+  // Walls
+  mmCtx.fillStyle='rgba(139,32,32,0.4)';for(const w of wallCoords){const dx=w.x-head.x,dy=w.y-head.y;if(Math.abs(dx)>mmRadius||Math.abs(dy)>mmRadius)continue;mmCtx.fillRect(mmOffX+dx*mmScale,mmOffY+dy*mmScale,Math.max(mmScale,1),Math.max(mmScale,1));}
+  // Other players
+  for(let i=0;i<players.length;i++){if(i===myPlayerIdx||!players[i].alive)continue;if(players[i].activePowers.invisible&&Date.now()<players[i].activePowers.invisible)continue;const ph=players[i].snake[0];const dx=ph.x-head.x,dy=ph.y-head.y;if(Math.abs(dx)>mmRadius||Math.abs(dy)>mmRadius)continue;mmCtx.fillStyle=getPlayerColor(players[i].colorIdx);mmCtx.fillRect(mmOffX+dx*mmScale-1,mmOffY+dy*mmScale-1,3,3);}
+  // Portals
+  for(const p of portals){const dx=p.pos.x-head.x,dy=p.pos.y-head.y;if(Math.abs(dx)>mmRadius||Math.abs(dy)>mmRadius)continue;mmCtx.fillStyle=p.color;mmCtx.fillRect(mmOffX+dx*mmScale-1,mmOffY+dy*mmScale-1,3,3);}
+  // Enemies
+  for(const e of enemies){const dx=e.body[0].x-head.x,dy=e.body[0].y-head.y;if(Math.abs(dx)>mmRadius||Math.abs(dy)>mmRadius)continue;mmCtx.fillStyle=e.isGuardian?'#ff0044':'#ff6b35';mmCtx.fillRect(mmOffX+dx*mmScale-1,mmOffY+dy*mmScale-1,3,3);}
+  // Foods
+  for(const f of foods){const dx=f.x-head.x,dy=f.y-head.y;if(Math.abs(dx)>mmRadius||Math.abs(dy)>mmRadius)continue;mmCtx.fillStyle=f.color;mmCtx.fillRect(mmOffX+dx*mmScale-1,mmOffY+dy*mmScale-1,3,3);}
+  // Devil fruit (only visible on minimap if same level)
+  if(devilFruit&&devilFruit.active&&players[myPlayerIdx]&&players[myPlayerIdx].level===devilFruit.level){
+    const dx=devilFruit.x-head.x,dy=devilFruit.y-head.y;
+    if(Math.abs(dx)<=mmRadius&&Math.abs(dy)<=mmRadius){mmCtx.fillStyle='#ff0044';mmCtx.fillRect(mmOffX+dx*mmScale-2,mmOffY+dy*mmScale-2,5,5);}
+    else{const ang=Math.atan2(dy,dx);const ex=mmOffX+Math.cos(ang)*(mw/2-3),ey=mmOffY+Math.sin(ang)*(mh/2-3);mmCtx.fillStyle='#ff0044';mmCtx.beginPath();mmCtx.arc(ex,ey,3,0,Math.PI*2);mmCtx.fill();}
+  }
+
+  // Self
+  mmCtx.fillStyle=getPlayerColor(players[myPlayerIdx]?players[myPlayerIdx].colorIdx:0);mmCtx.fillRect(mmOffX-2,mmOffY-2,5,5);
+  mmCtx.strokeStyle='rgba(78,255,145,0.25)';mmCtx.lineWidth=1;mmCtx.strokeRect(0,0,mw,mh);
+  if(fogActive){mmCtx.fillStyle='rgba(5,5,20,0.35)';mmCtx.fillRect(0,0,mw,mh);mmCtx.fillStyle=getPlayerColor(players[myPlayerIdx]?players[myPlayerIdx].colorIdx:0);mmCtx.fillRect(mmOffX-2,mmOffY-2,5,5);}
+}
+
+function drawStatic(){ctx.fillStyle=C.bg;ctx.fillRect(0,0,canvas.width,canvas.height);}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+
+// ═══ GAME OVER / WIN / PAUSE ═══
+function showGameUI(){
+  gameHeader.style.display='';gameWrap.style.display='';dpadEl.style.display='';powersBar.style.display='';itemSlotsEl.style.display='flex';
+  resizeCanvas();
+}
+function startGame(){
+  try{
+    // Thorough reset to prevent stale state from previous game
+    running=false;stopGameLoop();
+    clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+    lastLogicTime=0;boostLastToggle=0;lastLevelUpTime=0;
+    fogActive=false;combo=0;winner=null;
+    devilFruit=null;devilFruitHolder=-1;
+    trail=[];sortedTrailCache=null;
+    boostBtn.classList.remove('active','free');devilFruitInfo.style.display='none';
+    best=parseInt(safeLSGet('maze_snake_v10_best')||'0');bestEl.textContent=best;
+    respawnCount=0;initGame();running=true;paused=false;overlay.classList.add('hidden');pauseBtn.textContent='⏸';
+    endBtn.style.display=gameMode==='sp'?'block':'none';
+    updateCamera(true);scheduleItemSpawn();startGameLoop();
+  }catch(e){
+    const errEl=document.getElementById('error-display');
+    if(errEl){errEl.style.display='block';errEl.textContent='startGame错误: '+e.message;}
+    console.error('startGame error:',e);
+  }
+}
+function gameOver(){
+  running=false;stopGameLoop();
+  clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+  lastLogicTime=0;boostLastToggle=0;
+  devilFruitInfo.style.display='none';boostBtn.classList.remove('active','free');endBtn.style.display='none';
+  const p=players[myPlayerIdx];if(p.score>parseInt(safeLSGet('maze_snake_v10_best')||'0'))safeLSSet('maze_snake_v10_best',p.score);
+  ovEmoji.textContent='💀';ovTitle.textContent='游戏结束';ovSub.textContent='再来一次？';
+  ovResult.textContent=`得分：${p.score}　蛇长：${p.snake.length}　关卡：${p.level}　地图：${COLS}×${ROWS}`;
+  startBtn.textContent='再玩一次';overlay.classList.remove('hidden');
+}
+function gameOverWin(pi){
+  running=false;stopGameLoop();
+  clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+  lastLogicTime=0;boostLastToggle=0;
+  devilFruitInfo.style.display='none';boostBtn.classList.remove('active','free');endBtn.style.display='none';
+  const p=players[pi];if(p.isLocal&&p.score>parseInt(safeLSGet('maze_snake_v10_best')||'0'))safeLSSet('maze_snake_v10_best',p.score);
+  const elapsed=Math.floor((Date.now()-gameStartTime)/1000);
+  const mins=Math.floor(elapsed/60),secs=elapsed%60;
+  const timeStr=mins>0?`${mins}分${secs}秒`:`${secs}秒`;
+  ovEmoji.textContent='🏆';ovTitle.textContent=p.name+'通关获胜！';
+  ovSub.textContent=`🎉 率先完成所有关卡！`;
+  ovResult.innerHTML=`得分：${p.score}<br>🔄 重生次数：${respawnCount}<br>⏱️ 耗时：${timeStr}`;
+  startBtn.textContent='返回首页';startBtn.onclick=()=>{
+    overlay.classList.add('hidden');
+    gameHeader.style.display='none';gameWrap.style.display='none';dpadEl.style.display='none';
+    powersBar.style.display='none';itemSlotsEl.style.display='none';endBtn.style.display='none';
+    modeScreen.classList.remove('hidden');
+  };
+  overlay.classList.remove('hidden');
+}
+function togglePause(){if(!running)return;paused=!paused;pauseBtn.textContent=paused?'▶':'⏸';if(paused){stopGameLoop();}else{lastLogicTime=0;startGameLoop();}}
+function endGame(){
+  try{
+    running=false;stopGameLoop();
+    clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+    const p=players[myPlayerIdx];
+    if(p&&p.score>parseInt(safeLSGet('maze_snake_v10_best')||'0'))safeLSSet('maze_snake_v10_best',p.score);
+    boostBtn.classList.remove('active','free');devilFruitInfo.style.display='none';
+    // Hide game UI, show mode screen
+    gameHeader.style.display='none';gameWrap.style.display='none';dpadEl.style.display='none';
+    powersBar.style.display='none';itemSlotsEl.style.display='none';endBtn.style.display='none';
+    modeScreen.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    ovEmoji.textContent='👋';ovTitle.textContent='已退出游戏';ovSub.textContent='再来一局？';
+    ovResult.textContent=p?`得分：${p.score}　关卡：${p.level}`:'';
+    startBtn.textContent='开始游戏';
+  }catch(e){console.error('endGame error:',e);}
+}
+
+// ═══ INPUT ═══
+function setDir(dx,dy){
+  if(!running){startGame();return;}
+  if(paused)return;
+  const p=players[myPlayerIdx];if(!p||!p.alive)return;
+  if(p.petrifiedUntil&&Date.now()<p.petrifiedUntil)return;
+  if(p.dirBuffer.length<2){const lastDir=p.dirBuffer.length>0?p.dirBuffer[p.dirBuffer.length-1]:p.nextDir;
+    if(dx===-lastDir.x&&dy===-lastDir.y)return;if(dx===lastDir.x&&dy===lastDir.y)return;
+    p.dirBuffer.push({x:dx,y:dy});
+  }
+  p.visualDir={x:dx,y:dy};updateDirIndicator();
+  if(gameMode==='mp'&&!isHost&&peer&&connections.length>0)connections[0].send({type:'dir',dx,dy});
+}
+document.addEventListener('keydown',e=>{
+  try{
+    switch(e.key){case'ArrowUp':case'w':case'W':setDir(0,-1);break;case'ArrowDown':case's':case'S':setDir(0,1);break;case'ArrowLeft':case'a':case'A':setDir(-1,0);break;case'ArrowRight':case'd':case'D':setDir(1,0);break;case'p':case'P':togglePause();break;case'Enter':if(!running)startGame();break;case'1':useItemSlot(0);break;case'2':useItemSlot(1);break;case' ':{if(e.repeat)break;const now=Date.now();if(now-boostLastToggle<300)break;boostLastToggle=now;toggleBoost();break;}}
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+  }catch(err){console.error('keydown error:',err);}
+});
+function bindBtn(id,dx,dy){
+  const btn=document.getElementById(id);
+  const trigger=()=>{try{setDir(dx,dy);btn.classList.add('pressed');setTimeout(()=>btn.classList.remove('pressed'),120);}catch(e){console.error('bindBtn trigger error:',e);}};
+  btn.addEventListener('touchstart',e=>{e.preventDefault();trigger();},{passive:false});
+  btn.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
+  btn.addEventListener('touchcancel',e=>{e.preventDefault();},{passive:false});
+  btn.addEventListener('mousedown',e=>{e.preventDefault();trigger();});
+}
+bindBtn('btn-up',0,-1);bindBtn('btn-down',0,1);bindBtn('btn-left',-1,0);bindBtn('btn-right',1,0);
+// Boost button (debounced to prevent touchstart+click double-trigger, wrapped in try-catch)
+boostBtn.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();try{const now=Date.now();if(now-boostLastToggle<300)return;boostLastToggle=now;toggleBoost();boostBtn.classList.add('pressed');setTimeout(()=>boostBtn.classList.remove('pressed'),120);}catch(err){console.error('boost touchstart error:',err);}},  {passive:false});
+boostBtn.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();},{passive:false});
+boostBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{const now=Date.now();if(now-boostLastToggle<300)return;boostLastToggle=now;toggleBoost();}catch(err){console.error('boost click error:',err);}});
+function bindItemSlot(btn,slotIdx){
+  btn.addEventListener('touchstart',e=>{e.preventDefault();try{useItemSlot(slotIdx);}catch(err){console.error('itemSlot error:',err);}},  {passive:false});
+  btn.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
+  btn.addEventListener('touchcancel',e=>{e.preventDefault();},{passive:false});
+  btn.addEventListener('click',e=>{e.preventDefault();try{useItemSlot(slotIdx);}catch(err){console.error('itemSlot error:',err);}});
+}
+bindItemSlot(itemSlot1,0);bindItemSlot(itemSlot2,1);
+pauseBtn.addEventListener('click',()=>{try{togglePause();}catch(e){console.error('pause error:',e);}});
+pauseBtn.addEventListener('touchstart',e=>{e.preventDefault();try{togglePause();}catch(e){console.error('pause error:',e);}},  {passive:false});
+endBtn.addEventListener('click',()=>{try{endGame();}catch(e){console.error('endGame error:',e);}});
+endBtn.addEventListener('touchstart',e=>{e.preventDefault();try{endGame();}catch(e){console.error('endGame error:',e);}},  {passive:false});
+startBtn.addEventListener('click',()=>{try{startGame();}catch(e){console.error('startGame error:',e);}});
+startBtn.addEventListener('touchstart',e=>{e.preventDefault();try{startGame();}catch(e){console.error('startGame error:',e);}},  {passive:false});
+document.addEventListener('touchmove',e=>{e.preventDefault();},{passive:false});
+let ttx=null,tty=null;
+document.addEventListener('touchstart',e=>{if(e.target.closest('#dpad')||e.target.closest('#pause-btn')||e.target.closest('#start-btn')||e.target.closest('#mode-screen')||e.target.closest('#mp-screen')||e.target.closest('#item-slots')||e.target.closest('#btn-boost'))return;ttx=e.touches[0].clientX;tty=e.touches[0].clientY;},{passive:false});
+document.addEventListener('touchend',e=>{if(ttx===null)return;const dx=e.changedTouches[0].clientX-ttx,dy=e.changedTouches[0].clientY-tty;if(Math.abs(dx)<10&&Math.abs(dy)<10){ttx=null;return;}if(Math.abs(dx)>Math.abs(dy))setDir(dx>0?1:-1,0);else setDir(0,dy>0?1:-1);ttx=null;},{passive:false});
+
+// ═══ MULTIPLAYER ═══
+function generateRoomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';for(let i=0;i<4;i++)code+=chars[Math.floor(Math.random()*chars.length)];return code;}
+function createRoom(){
+  roomCode=generateRoomCode();document.getElementById('mp-room-code-display').textContent=roomCode;
+  document.getElementById('mp-waiting').classList.remove('hidden');
+  document.getElementById('mp-wait-status').textContent='正在创建房间...';
+  isHost=true;gameMode='mp';const myName=getPlayerName();
+  peer=new Peer('msnake-'+roomCode,{debug:1,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'},{urls:'stun:stun3.l.google.com:19302'},{urls:'stun:stun4.l.google.com:19302'}]}});
+  peer.on('open',id=>{document.getElementById('mp-wait-status').textContent='房间已创建！分享代码：'+roomCode;players=[createLocalPlayer(0)];players[0].name=myName;myPlayerIdx=0;updatePlayerListUI();});
+  peer.on('connection',conn=>{conn.on('open',()=>{const newIdx=players.length;const newPlayer=createLocalPlayer(newIdx);newPlayer.id='guest-'+newIdx;newPlayer.name=conn._guestName||PLAYER_NAMES[newIdx]||('玩家'+(newIdx+1));newPlayer.isLocal=false;newPlayer.conn=conn;players.push(newPlayer);connections.push(conn);updatePlayerListUI();showToast(`${newPlayer.name}加入了！`);});
+    conn.on('data',data=>{handleGuestData(data,conn);if(data.type==='join'&&data.name){conn._guestName=data.name;const pi=connections.indexOf(conn)+1;if(pi>=0&&pi<players.length){players[pi].name=data.name;updatePlayerListUI();}}});
+    conn.on('close',()=>{const idx=connections.indexOf(conn);if(idx>=0){showToast(`${players[idx+1]?.name||'玩家'}离开了`);players.splice(idx+1,1);connections.splice(idx,1);updatePlayerListUI();}});
+  });
+  peer.on('error',err=>{console.error('PeerJS error:',err);if(err.type==='unavailable-id'){document.getElementById('mp-wait-status').textContent='房间代码已被占用';setTimeout(()=>createRoom(),1500);}else if(err.type==='network'||err.type==='server-error'||err.type==='socket-error'||err.type==='socket-closed'){document.getElementById('mp-wait-status').textContent='连接失败，重试...';if(peer){try{peer.destroy();}catch(e){}}peer=null;setTimeout(()=>createRoom(),3000);}else{document.getElementById('mp-wait-status').textContent='连接错误：'+err.type;}});
+  peer.on('disconnected',()=>{if(peer&&!peer.destroyed){document.getElementById('mp-wait-status').textContent='断开连接，重连...';try{peer.reconnect();}catch(e){}}});
+}
+function joinRoom(){
+  const inputCode=document.getElementById('mp-room-input').value.toUpperCase().trim();
+  if(inputCode.length<4){document.getElementById('mp-join-status').textContent='请输入4位房间代码';return;}
+  document.getElementById('mp-join-status').textContent='正在连接...';
+  isHost=false;gameMode='mp';roomCode=inputCode;const myName=getPlayerName();
+  const guestId='msnake-guest-'+Math.random().toString(36).slice(2,8);
+  peer=new Peer(guestId,{debug:1,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'},{urls:'stun:stun3.l.google.com:19302'},{urls:'stun:stun4.l.google.com:19302'}]}});
+  peer.on('open',()=>{document.getElementById('mp-join-status').textContent='连接房间...';
+    const conn=peer.connect('msnake-'+roomCode,{reliable:true,serialization:'json'});
+    const connTimeout=setTimeout(()=>{if(!conn._open){document.getElementById('mp-join-status').textContent='连接超时';try{peer.destroy();}catch(e){}peer=null;}},10000);
+    conn.on('open',()=>{clearTimeout(connTimeout);conn._open=true;connections=[conn];document.getElementById('mp-join-status').textContent='已连接！等待主机开始...';conn.send({type:'join',name:myName});conn._guestName=myName;});
+    conn.on('data',data=>handleHostData(data));
+    conn.on('close',()=>{clearTimeout(connTimeout);document.getElementById('mp-join-status').textContent='与主机断开';showToast('与主机断开连接');});
+    conn.on('error',err=>{clearTimeout(connTimeout);document.getElementById('mp-join-status').textContent='连接错误';});
+  });
+  peer.on('error',err=>{if(err.type==='peer-unavailable')document.getElementById('mp-join-status').textContent='房间不存在';else document.getElementById('mp-join-status').textContent='连接失败';});
+  peer.on('disconnected',()=>{if(peer&&!peer.destroyed){document.getElementById('mp-join-status').textContent='重连中...';try{peer.reconnect();}catch(e){}}});
+}
+function handleGuestData(data,conn){
+  if(data.type==='dir'){const pi=connections.indexOf(conn)+1;if(pi>=0&&pi<players.length&&players[pi].alive){const p=players[pi];if(p.petrifiedUntil&&Date.now()<p.petrifiedUntil)return;if(p.dirBuffer.length<2){const lastDir=p.dirBuffer.length>0?p.dirBuffer[p.dirBuffer.length-1]:p.nextDir;if(data.dx===-lastDir.x&&data.dy===-lastDir.y)return;if(data.dx===lastDir.x&&data.dy===lastDir.y)return;p.dirBuffer.push({x:data.dx,y:data.dy});}}}
+  if(data.type==='join')conn._guestName=data.name||'玩家';
+  if(data.type==='useItem'){const pi=connections.indexOf(conn)+1;if(pi>=0&&pi<players.length)useItemSlotRemote(pi,data.slotIdx);}
+}
+function handleHostData(data){
+  if(data.type==='welcome'){myPlayerIdx=data.playerIdx;deserializeState(data.state);const myName=getPlayerName();if(players[myPlayerIdx])players[myPlayerIdx].name=myName;mpReady=true;showGameUI();initGameFromState();running=true;paused=false;overlay.classList.add('hidden');pauseBtn.textContent='⏸';updateCamera(true);startGameLoop();modeScreen.classList.add('hidden');mpScreen.classList.add('hidden');}
+  if(data.type==='state'){deserializeState(data.state);const myName=getPlayerName();if(players[myPlayerIdx])players[myPlayerIdx].name=myName;updateCameraTarget();updateHUD();updateItemSlotUI();}
+  if(data.type==='win')gameOverWin(data.winnerIdx);
+}
+function useItemSlotRemote(pi,slotIdx){
+  const p=players[pi];if(!p||!p.alive)return;const slot=p.itemSlots[slotIdx];if(!slot)return;
+  applyItem(slot,pi);p.itemSlots[slotIdx]=null;
+  if(p.infiniteItems){const def=randomItemDef();p.itemSlots[slotIdx]={...def};}updateItemSlotUI();
+}
+function serializeState(){
+  const pState=players.map(p=>({id:p.id,name:p.name,colorIdx:p.colorIdx,body:p.snake.map(c=>[c.x,c.y]),dir:[p.dir.x,p.dir.y],score:p.score,level:p.level,alive:p.alive,activePowers:p.activePowers,respawnInvulnEnd:p.respawnInvulnEnd,snakeLen:p.snake.length,itemSlots:p.itemSlots.map(s=>s?{type:s.type,emoji:s.emoji,color:s.color,label:s.label,duration:s.duration}:null),infiniteItems:p.infiniteItems,infiniteItemsUntil:p.infiniteItemsUntil,petrifiedUntil:p.petrifiedUntil}));
+  return{players:pState,foods:foods.map(f=>[f.x,f.y,f.type]),items:items.map(it=>[it.x,it.y,it.type,it.spawnTime,it.ttl]),enemies:enemies.map(e=>({body:e.body.map(c=>[c.x,c.y]),dir:[e.dir.x,e.dir.y],length:e.body.length,isGuardian:e.isGuardian||false})),walls:wallCoords.map(w=>[w.x,w.y]),portals:portals.map(p=>[p.pos.x,p.pos.y,p.destLevel,p.label,p.color]),mapSize:[COLS,ROWS],level:level,fogActive:fogActive,winner:winner,devilFruit:devilFruit?{x:devilFruit.x,y:devilFruit.y,active:devilFruit.active,level:devilFruit.level,spawnTime:devilFruit.spawnTime||0}:null,devilFruitHolder:devilFruitHolder,devilFruitNextSpawn:devilFruitNextSpawn,boundarySegments:boundarySegments};
+}
+function deserializeState(s){
+  COLS=s.mapSize[0];ROWS=s.mapSize[1];level=s.level;fogActive=s.fogActive;winner=s.winner;
+  wallSet=new Set();wallCoords=[];for(const w of s.walls){wallSet.add(`${w[0]},${w[1]}`);wallCoords.push({x:w[0],y:w[1]});}
+  for(let i=0;i<s.players.length;i++){const sp=s.players[i];
+    if(i<players.length){const p=players[i];p.snake=sp.body.map(c=>({x:c[0],y:c[1]}));p.dir={x:sp.dir[0],y:sp.dir[1]};p.nextDir={...p.dir};p.score=sp.score;p.level=sp.level;p.alive=sp.alive;p.activePowers=sp.activePowers||{};p.respawnInvulnEnd=sp.respawnInvulnEnd||0;p.name=sp.name;p.colorIdx=sp.colorIdx;p.itemSlots=(sp.itemSlots||[null,null]).map(s=>s?{type:s.type,emoji:s.emoji,color:s.color,label:s.label,duration:s.duration}:null);p.infiniteItems=sp.infiniteItems||false;p.infiniteItemsUntil=sp.infiniteItemsUntil||0;p.petrifiedUntil=sp.petrifiedUntil||0;}
+    else{const p=createLocalPlayer(sp.colorIdx);p.id=sp.id;p.name=sp.name;p.snake=sp.body.map(c=>({x:c[0],y:c[1]}));p.dir={x:sp.dir[0],y:sp.dir[1]};p.nextDir={...p.dir};p.score=sp.score;p.level=sp.level;p.alive=sp.alive;p.activePowers=sp.activePowers||{};p.isLocal=false;p.itemSlots=(sp.itemSlots||[null,null]).map(s=>s?{type:s.type,emoji:s.emoji,color:s.color,label:s.label,duration:s.duration}:null);p.infiniteItems=sp.infiniteItems||false;p.petrifiedUntil=sp.petrifiedUntil||0;players.push(p);}
+  }
+  foods=s.foods.map(f=>{const ft=FOOD_TYPES.find(t=>t.type===f[2])||FOOD_TYPES[0];return{...ft,x:f[0],y:f[1]};});
+  items=s.items.map(it=>{const def=NEW_ITEM_DEFS.find(d=>d.type===it[2])||NEW_ITEM_DEFS[0];return{...def,x:it[0],y:it[1],spawnTime:it[3],ttl:it[4]};});
+  enemies=s.enemies.map(e=>({body:e.body.map(c=>({x:c[0],y:c[1]})),dir:{x:e.dir[0],y:e.dir[1]},stepCounter:0,speed:level>=7?1:2,personality:Math.random(),growTimer:0,isGuardian:e.isGuardian||false,petrifiedUntil:0}));
+  portals=s.portals.map(p=>({pos:{x:p[0],y:p[1]},destLevel:p[2],label:p[3],color:p[4]}));
+  devilFruit=s.devilFruit?{x:s.devilFruit.x,y:s.devilFruit.y,active:s.devilFruit.active,level:s.devilFruit.level||level,spawnTime:s.devilFruit.spawnTime||0}:null;
+  devilFruitHolder=s.devilFruitHolder!==undefined?s.devilFruitHolder:-1;
+  devilFruitNextSpawn=s.devilFruitNextSpawn||Date.now()+DEVIL_FRUIT_SPAWN_TIME;
+  boundarySegments=s.boundarySegments||{top:[{start:0,end:9999}],bottom:[{start:0,end:9999}],left:[{start:0,end:9999}],right:[{start:0,end:9999}]};
+}
+function initGameFromState(){
+  const p=players[myPlayerIdx];interval=p.interval||BASE_INTERVAL;lastLevelUpTime=0;
+  clearTimeout(itemSpawnTimer);clearTimeout(fogCycleTimer);clearTimeout(fogEndTimer);clearInterval(portalRefreshTimer);
+  scheduleFogCycle();schedulePortalRefresh();if(isHost)scheduleItemSpawn();
+}
+function broadcastState(){if(!isHost||connections.length===0)return;const state=serializeState();for(const conn of connections){try{conn.send({type:'state',state});}catch(e){}}}
+function broadcastWin(pi){if(!isHost||connections.length===0)return;for(const conn of connections){try{conn.send({type:'win',winnerIdx:pi});}catch(e){}}}
+function updatePlayerListUI(){const listEl=document.getElementById('mp-player-list');if(!listEl)return;let html='';for(const p of players){const col=getPlayerColor(p.colorIdx);html+=`<div style="color:${col};margin:2px">● ${p.name}${p.isLocal?' (你)':''}</div>`;}listEl.innerHTML=html;}
+
+// ═══ MODE SELECT ═══
+// KEY FIX: After clicking 单人模式, auto-start the game immediately instead of showing overlay
+document.getElementById('mode-sp').addEventListener('click',()=>{
+  gameMode='sp';isHost=false;modeScreen.classList.add('hidden');
+  showGameUI();players=[createLocalPlayer(0)];myPlayerIdx=0;
+  players[0].name=getPlayerName();
+  best=parseInt(safeLSGet('maze_snake_v10_best')||'0');bestEl.textContent=best;
+  endBtn.style.display='block'; // Show end button in single-player
+  // Auto-start the game immediately!
+  startGame();
+});
+document.getElementById('mode-mp').addEventListener('click',async()=>{
+  const nameInput=document.getElementById('player-name-input');const mpNameInput=document.getElementById('mp-name-input');
+  if(nameInput.value.trim())mpNameInput.value=nameInput.value.trim();
+  try{await window._loadPeerJS();modeScreen.classList.add('hidden');mpScreen.classList.remove('hidden');}catch(e){showToast('无法加载联机组件');}
+});
+document.getElementById('mp-create').addEventListener('click',async()=>{if(!window.Peer){showToast('联机组件未加载');return;}try{await window._loadPeerJS();}catch(e){showToast('联机组件加载失败');return;}createRoom();});
+document.getElementById('mp-join').addEventListener('click',async()=>{if(!window.Peer){showToast('联机组件未加载');return;}try{await window._loadPeerJS();}catch(e){showToast('联机组件加载失败');return;}joinRoom();});
+document.getElementById('mp-back').addEventListener('click',()=>{mpScreen.classList.add('hidden');modeScreen.classList.remove('hidden');if(peer){peer.destroy();peer=null;}connections=[];isHost=false;});
+document.getElementById('mp-start-game').addEventListener('click',()=>{if(!isHost||players.length<2){showToast('需要至少2名玩家！');return;}mpScreen.classList.add('hidden');showGameUI();initGame();running=true;paused=false;overlay.classList.add('hidden');pauseBtn.textContent='⏸';
+    updateCamera(true);startGameLoop();});
+
+// ═══ BOOT ═══
+best=parseInt(safeLSGet('maze_snake_v10_best')||'0');
+</script>
+</body>
+</html>
